@@ -14,14 +14,14 @@
 /** IPC channel name constants. */
 export const IPC_CHANNELS = {
   PING: 'ping',
-} as const;
+} as const
 
 /**
  * Maps each IPC channel to its request args tuple and response type.
  * Use string literal keys matching the values in IPC_CHANNELS.
  */
 export interface IpcChannelMap {
-  ping: { args: []; response: string };
+  ping: { args: []; response: string }
 }
 
 /**
@@ -30,7 +30,5 @@ export interface IpcChannelMap {
  * channel's response type.
  */
 export type ElectronAPI = {
-  [K in keyof IpcChannelMap]: (
-    ...args: IpcChannelMap[K]['args']
-  ) => Promise<IpcChannelMap[K]['response']>;
-};
+  [K in keyof IpcChannelMap]: (...args: IpcChannelMap[K]['args']) => Promise<IpcChannelMap[K]['response']>
+}
