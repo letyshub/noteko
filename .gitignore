@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+
+# Vite
+.vite/
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+*.lcov
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Editor
+.idea/
+
+# Electron-Forge
+.webpack/
