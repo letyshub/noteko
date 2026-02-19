@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "description": "AI-powered document analysis and quiz generation desktop application",
   "main": ".vite/build/index.js",
-  "type": "module",
   "private": true,
   "scripts": {
     "start": "electron-forge start",
