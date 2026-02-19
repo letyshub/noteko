@@ -31,3 +31,6 @@ coverage/
 
 # Electron-Forge
 .webpack/
+
+# Linting
+.eslintcache
