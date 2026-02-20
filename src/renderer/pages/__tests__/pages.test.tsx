@@ -23,7 +23,8 @@ beforeEach(() => {
     'db:folders:create': vi.fn(),
     'db:folders:update': vi.fn(),
     'db:folders:delete': vi.fn(),
-    'db:documents:list': vi.fn(),
+    'db:documents:list': vi.fn().mockResolvedValue({ success: true, data: [] }),
+    'db:documents:list-by-project': vi.fn().mockResolvedValue({ success: true, data: [] }),
     'db:documents:get': vi.fn(),
     'db:documents:create': vi.fn(),
     'db:documents:update': vi.fn(),
@@ -55,7 +56,7 @@ describe('DashboardPage', () => {
 })
 
 describe('ProjectPage', () => {
-  it('renders project page with project id from route params', () => {
+  it('renders project not found when project is not in store', () => {
     render(
       <MemoryRouter initialEntries={['/projects/42']}>
         <Routes>
@@ -64,7 +65,7 @@ describe('ProjectPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Project')).toBeInTheDocument()
+    expect(screen.getByText('Project not found')).toBeInTheDocument()
   })
 })
 

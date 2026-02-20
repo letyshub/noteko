@@ -45,7 +45,7 @@ export const createDocument = (data: {
     .get()
 }
 
-export const updateDocument = (id: number, data: { name?: string; file_path?: string; file_size?: number }) => {
+export const updateDocument = (id: number, data: { name?: string; folder_id?: number; project_id?: number }) => {
   return getDb()
     .update(documents)
     .set({ ...data, updated_at: new Date().toISOString() })

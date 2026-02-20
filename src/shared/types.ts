@@ -98,6 +98,7 @@ export interface CreateDocumentInput {
 export interface UpdateDocumentInput {
   name?: string
   folder_id?: number
+  project_id?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -156,4 +157,24 @@ export interface CreateQuizAttemptInput {
   score: number
   total_questions: number
   answers?: Record<string, string>
+}
+
+// ---------------------------------------------------------------------------
+// File Upload
+// ---------------------------------------------------------------------------
+
+/** Input for the file:upload IPC channel. */
+export interface FileUploadInput {
+  filePath: string // Source file path on disk
+  projectId: number // Target project
+  folderId: number // Target folder
+}
+
+/** Result of file validation. */
+export interface FileValidationResult {
+  valid: boolean
+  error?: string
+  name: string
+  size: number
+  type: string
 }

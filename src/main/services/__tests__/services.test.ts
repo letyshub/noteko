@@ -517,4 +517,187 @@ describe('service layer', () => {
       expect(remaining[0].title).toBe('Keep')
     })
   })
+
+  // ─── Cascade Delete Tests ─────────────────────────────────────
+
+  describe('cascadeDeleteProject', () => {
+    it('should delete project and all associated folders, documents, content, quizzes, questions, and attempts', async () => {
+      const { createProject } = await import('@main/services/project-service')
+      const { cascadeDeleteProject } = await import('@main/services/project-service')
+      const { createFolder } = await import('@main/services/folder-service')
+      const { createDocument } = await import('@main/services/document-service')
+      const { createQuiz, recordAttempt } = await import('@main/services/quiz-service')
+
+      // Create project with full hierarchy
+      const project = createProject({ name: 'Cascade Delete Project' })!
+      const folder = createFolder({ name: 'Folder', project_id: project.id })!
+      const doc = createDocument({
+        name: 'doc.pdf',
+        file_path: '/test/doc.pdf',
+        file_type: 'pdf',
+        file_size: 100,
+        folder_id: folder.id,
+        project_id: project.id,
+      })!
+
+      // Add document content
+      db.insert(schema.documentContent)
+        .values({
+          document_id: doc.id,
+          raw_text: 'Some text',
+          processed_at: new Date().toISOString(),
+        })
+        .run()
+
+      // Add quiz with questions
+      const quiz = createQuiz({
+        title: 'Test Quiz',
+        document_id: doc.id,
+        questions: [{ question: 'Q1?', options: ['A', 'B'], correct_answer: 'A' }],
+      })!
+
+      // Add quiz attempt
+      recordAttempt({ quiz_id: quiz.id, score: 1, total_questions: 1 })
+
+      // Perform cascade delete
+      cascadeDeleteProject(project.id)
+
+      // Verify everything is gone
+      const remainingProjects = db.select().from(schema.projects).all()
+      const remainingFolders = db.select().from(schema.folders).all()
+      const remainingDocs = db.select().from(schema.documents).all()
+      const remainingContent = db.select().from(schema.documentContent).all()
+      const remainingQuizzes = db.select().from(schema.quizzes).all()
+      const remainingQuestions = db.select().from(schema.quizQuestions).all()
+      const remainingAttempts = db.select().from(schema.quizAttempts).all()
+
+      expect(remainingProjects).toHaveLength(0)
+      expect(remainingFolders).toHaveLength(0)
+      expect(remainingDocs).toHaveLength(0)
+      expect(remainingContent).toHaveLength(0)
+      expect(remainingQuizzes).toHaveLength(0)
+      expect(remainingQuestions).toHaveLength(0)
+      expect(remainingAttempts).toHaveLength(0)
+    })
+  })
+
+  describe('cascadeDeleteFolder', () => {
+    it('should delete folder, nested subfolders, and documents in those folders', async () => {
+      const { createProject } = await import('@main/services/project-service')
+      const { createFolder } = await import('@main/services/folder-service')
+      const { cascadeDeleteFolder } = await import('@main/services/folder-service')
+      const { createDocument } = await import('@main/services/document-service')
+      const { createQuiz } = await import('@main/services/quiz-service')
+
+      const project = createProject({ name: 'Cascade Folder Project' })!
+
+      // Create folder hierarchy: root -> child -> grandchild
+      const rootFolder = createFolder({ name: 'Root', project_id: project.id })!
+      const childFolder = createFolder({ name: 'Child', project_id: project.id, parent_folder_id: rootFolder.id })!
+      const grandchildFolder = createFolder({
+        name: 'Grandchild',
+        project_id: project.id,
+        parent_folder_id: childFolder.id,
+      })!
+
+      // Create a sibling folder that should NOT be deleted
+      const siblingFolder = createFolder({ name: 'Sibling', project_id: project.id })!
+
+      // Add documents to various levels
+      const docInRoot = createDocument({
+        name: 'root-doc.pdf',
+        file_path: '/test/root-doc.pdf',
+        file_type: 'pdf',
+        file_size: 100,
+        folder_id: rootFolder.id,
+        project_id: project.id,
+      })!
+
+      createDocument({
+        name: 'grandchild-doc.pdf',
+        file_path: '/test/grandchild-doc.pdf',
+        file_type: 'pdf',
+        file_size: 200,
+        folder_id: grandchildFolder.id,
+        project_id: project.id,
+      })
+
+      // Add a document in the sibling folder (should survive)
+      createDocument({
+        name: 'sibling-doc.pdf',
+        file_path: '/test/sibling-doc.pdf',
+        file_type: 'pdf',
+        file_size: 300,
+        folder_id: siblingFolder.id,
+        project_id: project.id,
+      })
+
+      // Add document content and quiz for root doc
+      db.insert(schema.documentContent)
+        .values({
+          document_id: docInRoot.id,
+          raw_text: 'Root doc text',
+          processed_at: new Date().toISOString(),
+        })
+        .run()
+
+      createQuiz({
+        title: 'Root Doc Quiz',
+        document_id: docInRoot.id,
+        questions: [{ question: 'Q?', options: ['A'], correct_answer: 'A' }],
+      })
+
+      // Cascade delete the root folder
+      cascadeDeleteFolder(rootFolder.id)
+
+      // Verify: root, child, grandchild folders gone; sibling remains
+      const remainingFolders = db.select().from(schema.folders).all()
+      expect(remainingFolders).toHaveLength(1)
+      expect(remainingFolders[0].name).toBe('Sibling')
+
+      // Verify: documents in deleted folders gone; sibling doc remains
+      const remainingDocs = db.select().from(schema.documents).all()
+      expect(remainingDocs).toHaveLength(1)
+      expect(remainingDocs[0].name).toBe('sibling-doc.pdf')
+
+      // Verify: content and quizzes cleaned up
+      const remainingContent = db.select().from(schema.documentContent).all()
+      expect(remainingContent).toHaveLength(0)
+
+      const remainingQuizzes = db.select().from(schema.quizzes).all()
+      expect(remainingQuizzes).toHaveLength(0)
+
+      const remainingQuestions = db.select().from(schema.quizQuestions).all()
+      expect(remainingQuestions).toHaveLength(0)
+    })
+  })
+
+  describe('updateDocument with folder_id', () => {
+    it('should update a document folder_id', async () => {
+      const { createProject } = await import('@main/services/project-service')
+      const { createFolder } = await import('@main/services/folder-service')
+      const { createDocument, updateDocument } = await import('@main/services/document-service')
+
+      const project = createProject({ name: 'Move Doc Project' })!
+      const folderA = createFolder({ name: 'Folder A', project_id: project.id })!
+      const folderB = createFolder({ name: 'Folder B', project_id: project.id })!
+
+      const doc = createDocument({
+        name: 'movable.pdf',
+        file_path: '/test/movable.pdf',
+        file_type: 'pdf',
+        file_size: 100,
+        folder_id: folderA.id,
+        project_id: project.id,
+      })!
+
+      expect(doc.folder_id).toBe(folderA.id)
+
+      const updated = updateDocument(doc.id, { folder_id: folderB.id })
+
+      expect(updated).toBeDefined()
+      expect(updated!.folder_id).toBe(folderB.id)
+      expect(updated!.name).toBe('movable.pdf') // unchanged
+    })
+  })
 })

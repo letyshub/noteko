@@ -31,6 +31,7 @@ const electronAPI: ElectronAPI = {
 
   // Documents
   'db:documents:list': (folderId) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_LIST, folderId),
+  'db:documents:list-by-project': (projectId) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_LIST_BY_PROJECT, projectId),
   'db:documents:get': (id) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_GET, id),
   'db:documents:create': (input) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_CREATE, input),
   'db:documents:update': (id, input) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_UPDATE, id, input),
@@ -45,6 +46,11 @@ const electronAPI: ElectronAPI = {
   // Quiz Attempts
   'db:quiz-attempts:list': (quizId) => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_ATTEMPTS_LIST, quizId),
   'db:quiz-attempts:create': (input) => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_ATTEMPTS_CREATE, input),
+
+  // Files
+  'file:open-dialog': () => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_DIALOG),
+  'file:upload': (input) => ipcRenderer.invoke(IPC_CHANNELS.FILE_UPLOAD, input),
+  'file:validate': (filePath) => ipcRenderer.invoke(IPC_CHANNELS.FILE_VALIDATE, filePath),
 
   // Event subscriptions (main -> renderer push)
   on: (channel, callback) => {

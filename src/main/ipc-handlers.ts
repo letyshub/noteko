@@ -16,17 +16,19 @@ import type {
   UpdateDocumentInput,
   CreateQuizInput,
   CreateQuizAttemptInput,
+  FileUploadInput,
 } from '@shared/types'
 import {
   listProjects,
   getProject,
   createProject,
   updateProject,
-  deleteProject,
+  cascadeDeleteProject,
   listFolders,
   createFolder,
   updateFolder,
-  deleteFolder,
+  cascadeDeleteFolder,
+  listDocumentsByProject,
   listDocumentsByFolder,
   getDocumentWithContent,
   createDocument,
@@ -38,6 +40,10 @@ import {
   deleteQuiz,
   listAttempts,
   recordAttempt,
+  validateFile,
+  copyFileToStorage,
+  openFilePickerDialog,
+  deleteFileFromStorage,
 } from '@main/services'
 
 /**
@@ -93,7 +99,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.PROJECTS_DELETE, async (_event, id: number) => {
     try {
-      deleteProject(id)
+      cascadeDeleteProject(id)
       return createIpcSuccess(undefined as void)
     } catch (error) {
       return createIpcError('PROJECTS_DELETE_ERROR', error instanceof Error ? error.message : 'Unknown error')
@@ -133,7 +139,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.FOLDERS_DELETE, async (_event, id: number) => {
     try {
-      deleteFolder(id)
+      cascadeDeleteFolder(id)
       return createIpcSuccess(undefined as void)
     } catch (error) {
       return createIpcError('FOLDERS_DELETE_ERROR', error instanceof Error ? error.message : 'Unknown error')
@@ -141,6 +147,15 @@ export function registerIpcHandlers(): void {
   })
 
   // ─── Documents ────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.DOCUMENTS_LIST_BY_PROJECT, async (_event, projectId: number) => {
+    try {
+      const result = listDocumentsByProject(projectId)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DOCUMENTS_LIST_BY_PROJECT_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
   ipcMain.handle(IPC_CHANNELS.DOCUMENTS_LIST, async (_event, folderId: number) => {
     try {
       const result = listDocumentsByFolder(folderId)
@@ -254,6 +269,57 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess(result)
     } catch (error) {
       return createIpcError('QUIZ_ATTEMPTS_CREATE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Files ───────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.FILE_OPEN_DIALOG, async () => {
+    try {
+      const filePaths = await openFilePickerDialog()
+      return createIpcSuccess(filePaths)
+    } catch (error) {
+      return createIpcError('FILE_OPEN_DIALOG_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.FILE_VALIDATE, async (_event, filePath: string) => {
+    try {
+      const result = validateFile(filePath)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('FILE_VALIDATE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.FILE_UPLOAD, async (_event, input: FileUploadInput) => {
+    try {
+      // 1. Validate the file
+      const validation = validateFile(input.filePath)
+      if (!validation.valid) {
+        return createIpcError('FILE_VALIDATION_FAILED', validation.error ?? 'File validation failed')
+      }
+
+      // 2. Copy file to storage
+      const storedPath = copyFileToStorage(input.filePath, input.projectId)
+
+      // 3. Create document DB record
+      try {
+        const document = createDocument({
+          name: validation.name,
+          file_path: storedPath,
+          file_type: validation.type,
+          file_size: validation.size,
+          folder_id: input.folderId,
+          project_id: input.projectId,
+        })
+        return createIpcSuccess(document)
+      } catch (dbError) {
+        // 4. Rollback: delete copied file on DB failure
+        deleteFileFromStorage(storedPath)
+        return createIpcError('FILE_UPLOAD_DB_ERROR', dbError instanceof Error ? dbError.message : 'Unknown error')
+      }
+    } catch (error) {
+      return createIpcError('FILE_UPLOAD_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 }

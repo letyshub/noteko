@@ -20,6 +20,8 @@ import type {
   UpdateDocumentInput,
   CreateQuizInput,
   CreateQuizAttemptInput,
+  FileUploadInput,
+  FileValidationResult,
   ProjectDto,
   FolderDto,
   DocumentDto,
@@ -52,6 +54,7 @@ export const IPC_CHANNELS = {
 
   // Documents
   DOCUMENTS_LIST: 'db:documents:list',
+  DOCUMENTS_LIST_BY_PROJECT: 'db:documents:list-by-project',
   DOCUMENTS_GET: 'db:documents:get',
   DOCUMENTS_CREATE: 'db:documents:create',
   DOCUMENTS_UPDATE: 'db:documents:update',
@@ -66,6 +69,11 @@ export const IPC_CHANNELS = {
   // Quiz Attempts
   QUIZ_ATTEMPTS_LIST: 'db:quiz-attempts:list',
   QUIZ_ATTEMPTS_CREATE: 'db:quiz-attempts:create',
+
+  // Files
+  FILE_OPEN_DIALOG: 'file:open-dialog',
+  FILE_UPLOAD: 'file:upload',
+  FILE_VALIDATE: 'file:validate',
 
   // Events (push from main to renderer)
   PROGRESS: 'app:progress',
@@ -140,6 +148,10 @@ export interface IpcChannelMap {
     args: [folderId: number]
     response: IpcResult<DocumentDto[]>
   }
+  'db:documents:list-by-project': {
+    args: [projectId: number]
+    response: IpcResult<DocumentDto[]>
+  }
   'db:documents:get': {
     args: [id: number]
     response: IpcResult<DocumentDetailDto>
@@ -177,6 +189,17 @@ export interface IpcChannelMap {
   'db:quiz-attempts:create': {
     args: [input: CreateQuizAttemptInput]
     response: IpcResult<QuizAttemptDto>
+  }
+
+  // Files
+  'file:open-dialog': { args: []; response: IpcResult<string[]> }
+  'file:upload': {
+    args: [input: FileUploadInput]
+    response: IpcResult<DocumentDto>
+  }
+  'file:validate': {
+    args: [filePath: string]
+    response: IpcResult<FileValidationResult>
   }
 }
 

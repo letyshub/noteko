@@ -5,8 +5,8 @@ import type { IpcResult } from '../ipc'
 describe('IPC_CHANNELS', () => {
   it('should have the expected number of channel entries', () => {
     const channelKeys = Object.keys(IPC_CHANNELS)
-    // ping + 5 projects + 4 folders + 5 documents + 4 quizzes + 2 quiz-attempts + 1 progress = 22
-    expect(channelKeys).toHaveLength(22)
+    // ping + 5 projects + 4 folders + 6 documents + 4 quizzes + 2 quiz-attempts + 3 files + 1 progress = 26
+    expect(channelKeys).toHaveLength(26)
   })
 
   it('should include the ping channel for backward compatibility', () => {
