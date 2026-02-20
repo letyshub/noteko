@@ -1,20 +1,13 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog } from 'electron'
 import path from 'node:path'
 import started from 'electron-squirrel-startup'
-import { IPC_CHANNELS } from '@shared/ipc'
+import log from 'electron-log'
+import { initializeDatabase, closeDatabase } from '@main/database'
+import { registerIpcHandlers } from '@main/ipc-handlers'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit()
-}
-
-/**
- * Register all IPC handlers.
- * Called once before the first BrowserWindow is created.
- * To add a new handler, add an entry here and define the channel in @shared/ipc.ts.
- */
-function registerIpcHandlers(): void {
-  ipcMain.handle(IPC_CHANNELS.PING, () => 'pong')
 }
 
 registerIpcHandlers()
@@ -47,7 +40,20 @@ const createWindow = (): void => {
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-app.on('ready', createWindow)
+app.on('ready', async () => {
+  try {
+    initializeDatabase()
+    createWindow()
+  } catch (error) {
+    log.error('Failed to start application:', error)
+    dialog.showErrorBox('Startup Error', 'Failed to initialize the database. The application will now exit.')
+    app.quit()
+  }
+})
+
+app.on('will-quit', () => {
+  closeDatabase()
+})
 
 // Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', () => {

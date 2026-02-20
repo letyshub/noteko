@@ -1,38 +1,30 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
+import { Routes, Route } from 'react-router'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@renderer/components/ui/sidebar'
 import { Separator } from '@renderer/components/ui/separator'
 import { AppSidebar } from '@renderer/components/layout/app-sidebar'
+import { ErrorBoundary } from '@renderer/components/layout/error-boundary'
 import { useTheme } from '@renderer/hooks/use-theme'
-
-function readSidebarState(): boolean {
-  try {
-    const stored = localStorage.getItem('noteko-sidebar-state')
-    if (stored === 'false') return false
-  } catch {
-    // localStorage unavailable
-  }
-  return true
-}
+import { useUIStore } from '@renderer/store/ui-store'
+import { DashboardPage } from '@renderer/pages/dashboard-page'
+import { ProjectPage } from '@renderer/pages/project-page'
+import { DocumentPage } from '@renderer/pages/document-page'
+import { QuizPage } from '@renderer/pages/quiz-page'
+import { SettingsPage } from '@renderer/pages/settings-page'
 
 export function App() {
   useTheme()
 
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(readSidebarState)
-  const [pongResult, setPongResult] = useState<string | null>(null)
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen)
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen)
+  const currentPageTitle = useUIStore((s) => s.currentPageTitle)
 
-  const handleSidebarChange = useCallback((isOpen: boolean) => {
-    setSidebarOpen(isOpen)
-    localStorage.setItem('noteko-sidebar-state', String(isOpen))
-  }, [])
-
-  const handlePing = async () => {
-    try {
-      const response = await window.electronAPI.ping()
-      setPongResult(response)
-    } catch {
-      setPongResult('Error: IPC call failed')
-    }
-  }
+  const handleSidebarChange = useCallback(
+    (isOpen: boolean) => {
+      setSidebarOpen(isOpen)
+    },
+    [setSidebarOpen],
+  )
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarChange}>
@@ -41,22 +33,19 @@ export function App() {
         <header className="flex h-12 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-4" />
-          <span>Home</span>
+          <span className="font-medium">{currentPageTitle || 'Noteko'}</span>
         </header>
-        <div className="flex flex-1 items-center justify-center p-4">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight">Hello Noteko</h1>
-            <p className="mt-2 text-muted-foreground">React 19 + Tailwind CSS v4 + shadcn/ui</p>
-            <button
-              type="button"
-              className="mt-4 rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
-              onClick={handlePing}
-            >
-              Ping Main Process
-            </button>
-            {pongResult !== null && <p className="mt-2 text-sm text-muted-foreground">Response: {pongResult}</p>}
-          </div>
-        </div>
+        <main className="flex flex-1 flex-col">
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/projects/:id" element={<ProjectPage />} />
+              <Route path="/documents/:id" element={<DocumentPage />} />
+              <Route path="/quizzes/:id" element={<QuizPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Routes>
+          </ErrorBoundary>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   )

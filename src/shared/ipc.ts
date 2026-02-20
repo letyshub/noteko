@@ -11,24 +11,203 @@
  * so steps 3 and 4 get full type safety automatically.
  */
 
+import type {
+  CreateProjectInput,
+  UpdateProjectInput,
+  CreateFolderInput,
+  UpdateFolderInput,
+  CreateDocumentInput,
+  UpdateDocumentInput,
+  CreateQuizInput,
+  CreateQuizAttemptInput,
+  ProjectDto,
+  FolderDto,
+  DocumentDto,
+  DocumentDetailDto,
+  QuizDto,
+  QuizDetailDto,
+  QuizAttemptDto,
+} from './types'
+
+// ---------------------------------------------------------------------------
+// IPC Channel Names
+// ---------------------------------------------------------------------------
+
 /** IPC channel name constants. */
 export const IPC_CHANNELS = {
   PING: 'ping',
+
+  // Projects
+  PROJECTS_LIST: 'db:projects:list',
+  PROJECTS_GET: 'db:projects:get',
+  PROJECTS_CREATE: 'db:projects:create',
+  PROJECTS_UPDATE: 'db:projects:update',
+  PROJECTS_DELETE: 'db:projects:delete',
+
+  // Folders
+  FOLDERS_LIST: 'db:folders:list',
+  FOLDERS_CREATE: 'db:folders:create',
+  FOLDERS_UPDATE: 'db:folders:update',
+  FOLDERS_DELETE: 'db:folders:delete',
+
+  // Documents
+  DOCUMENTS_LIST: 'db:documents:list',
+  DOCUMENTS_GET: 'db:documents:get',
+  DOCUMENTS_CREATE: 'db:documents:create',
+  DOCUMENTS_UPDATE: 'db:documents:update',
+  DOCUMENTS_DELETE: 'db:documents:delete',
+
+  // Quizzes
+  QUIZZES_LIST: 'db:quizzes:list',
+  QUIZZES_GET: 'db:quizzes:get',
+  QUIZZES_CREATE: 'db:quizzes:create',
+  QUIZZES_DELETE: 'db:quizzes:delete',
+
+  // Quiz Attempts
+  QUIZ_ATTEMPTS_LIST: 'db:quiz-attempts:list',
+  QUIZ_ATTEMPTS_CREATE: 'db:quiz-attempts:create',
+
+  // Events (push from main to renderer)
+  PROGRESS: 'app:progress',
 } as const
+
+// ---------------------------------------------------------------------------
+// IPC Result Types
+// ---------------------------------------------------------------------------
+
+/** Structured error returned from IPC handlers. */
+export interface IpcError {
+  code: string
+  message: string
+  details?: unknown
+}
+
+/** Discriminated union result type for all IPC responses. */
+export type IpcResult<T> = { success: true; data: T } | { success: false; error: IpcError }
+
+/** Create a successful IPC result. */
+export function createIpcSuccess<T>(data: T): IpcResult<T> {
+  return { success: true, data }
+}
+
+/** Create a failed IPC result. */
+export function createIpcError(code: string, message: string, details?: unknown): IpcResult<never> {
+  return { success: false, error: { code, message, details } }
+}
+
+// ---------------------------------------------------------------------------
+// IPC Channel Map (args + response for each channel)
+// ---------------------------------------------------------------------------
 
 /**
  * Maps each IPC channel to its request args tuple and response type.
  * Use string literal keys matching the values in IPC_CHANNELS.
  */
 export interface IpcChannelMap {
+  // Ping (backward-compatible)
   ping: { args: []; response: string }
+
+  // Projects
+  'db:projects:list': { args: []; response: IpcResult<ProjectDto[]> }
+  'db:projects:get': { args: [id: number]; response: IpcResult<ProjectDto> }
+  'db:projects:create': {
+    args: [input: CreateProjectInput]
+    response: IpcResult<ProjectDto>
+  }
+  'db:projects:update': {
+    args: [id: number, input: UpdateProjectInput]
+    response: IpcResult<ProjectDto>
+  }
+  'db:projects:delete': { args: [id: number]; response: IpcResult<void> }
+
+  // Folders
+  'db:folders:list': {
+    args: [projectId: number]
+    response: IpcResult<FolderDto[]>
+  }
+  'db:folders:create': {
+    args: [input: CreateFolderInput]
+    response: IpcResult<FolderDto>
+  }
+  'db:folders:update': {
+    args: [id: number, input: UpdateFolderInput]
+    response: IpcResult<FolderDto>
+  }
+  'db:folders:delete': { args: [id: number]; response: IpcResult<void> }
+
+  // Documents
+  'db:documents:list': {
+    args: [folderId: number]
+    response: IpcResult<DocumentDto[]>
+  }
+  'db:documents:get': {
+    args: [id: number]
+    response: IpcResult<DocumentDetailDto>
+  }
+  'db:documents:create': {
+    args: [input: CreateDocumentInput]
+    response: IpcResult<DocumentDto>
+  }
+  'db:documents:update': {
+    args: [id: number, input: UpdateDocumentInput]
+    response: IpcResult<DocumentDto>
+  }
+  'db:documents:delete': { args: [id: number]; response: IpcResult<void> }
+
+  // Quizzes
+  'db:quizzes:list': {
+    args: [documentId: number]
+    response: IpcResult<QuizDto[]>
+  }
+  'db:quizzes:get': {
+    args: [id: number]
+    response: IpcResult<QuizDetailDto>
+  }
+  'db:quizzes:create': {
+    args: [input: CreateQuizInput]
+    response: IpcResult<QuizDto>
+  }
+  'db:quizzes:delete': { args: [id: number]; response: IpcResult<void> }
+
+  // Quiz Attempts
+  'db:quiz-attempts:list': {
+    args: [quizId: number]
+    response: IpcResult<QuizAttemptDto[]>
+  }
+  'db:quiz-attempts:create': {
+    args: [input: CreateQuizAttemptInput]
+    response: IpcResult<QuizAttemptDto>
+  }
 }
+
+// ---------------------------------------------------------------------------
+// IPC Event Types (main -> renderer push)
+// ---------------------------------------------------------------------------
+
+/** Progress event pushed from main process to renderer. */
+export interface ProgressEvent {
+  taskId: string
+  progress: number // 0-100
+  message: string
+}
+
+/** Maps event channels to their payload types. */
+export interface IpcEventMap {
+  'app:progress': ProgressEvent
+}
+
+// ---------------------------------------------------------------------------
+// Electron API (exposed to renderer via contextBridge)
+// ---------------------------------------------------------------------------
 
 /**
  * The typed API exposed to the renderer via contextBridge.
  * Each method corresponds to an IPC channel and returns a Promise of the
- * channel's response type.
+ * channel's response type. Also includes event subscription helpers.
  */
 export type ElectronAPI = {
   [K in keyof IpcChannelMap]: (...args: IpcChannelMap[K]['args']) => Promise<IpcChannelMap[K]['response']>
+} & {
+  on: <K extends keyof IpcEventMap>(channel: K, callback: (data: IpcEventMap[K]) => void) => void
+  off: <K extends keyof IpcEventMap>(channel: K, callback: (data: IpcEventMap[K]) => void) => void
 }

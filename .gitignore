@@ -34,3 +34,15 @@ coverage/
 
 # Linting
 .eslintcache
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Drizzle migrations
+drizzle/
+
+# Playwright
+test-results/
+playwright-report/
