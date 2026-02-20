@@ -14,17 +14,17 @@ AI-powered document analysis and quiz generation desktop application. Upload PDF
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Desktop Framework | Electron + Vite |
-| Frontend | React 19, TypeScript, Tailwind CSS v4, shadcn/ui |
-| State Management | Zustand |
-| Database | SQLite (via Drizzle ORM) |
-| LLM Engine | Ollama (Llama 3, Mistral, Phi) |
-| Document Processing | pdf-parse, Tesseract.js (OCR), mammoth |
-| Logging | electron-log |
-| Testing | Vitest, Playwright |
-| Packaging | electron-forge |
+| Layer               | Technology                                       |
+| ------------------- | ------------------------------------------------ |
+| Desktop Framework   | Electron + Vite                                  |
+| Frontend            | React 19, TypeScript, Tailwind CSS v4, shadcn/ui |
+| State Management    | Zustand                                          |
+| Database            | SQLite (via Drizzle ORM)                         |
+| LLM Engine          | Ollama (Llama 3, Mistral, Phi)                   |
+| Document Processing | pdf-parse, Tesseract.js (OCR), mammoth           |
+| Logging             | electron-log                                     |
+| Testing             | Vitest, Playwright                               |
+| Packaging           | electron-forge                                   |
 
 ## Architecture
 

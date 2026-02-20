@@ -1,0 +1,8 @@
+dist/
+out/
+node_modules/
+.vite/
+.next/
+*.min.*
+package-lock.json
+.husky/
