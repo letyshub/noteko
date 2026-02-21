@@ -14,6 +14,7 @@ export const documents = sqliteTable('documents', {
   project_id: integer('project_id')
     .notNull()
     .references(() => projects.id),
+  processing_status: text('processing_status').notNull().default('pending'),
   created_at: text('created_at')
     .notNull()
     .$default(() => new Date().toISOString()),

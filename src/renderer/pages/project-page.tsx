@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router'
 import { FolderPlus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
@@ -6,12 +6,15 @@ import { Separator } from '@renderer/components/ui/separator'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { FolderTree } from '@renderer/components/folders/folder-tree'
 import { DocumentList } from '@renderer/components/documents/document-list'
+import { DocumentListToolbar } from '@renderer/components/documents/document-list-toolbar'
+import type { SortField } from '@renderer/components/documents/document-list-toolbar'
 import { DropZone } from '@renderer/components/upload/drop-zone'
 import { UploadProgress } from '@renderer/components/upload/upload-progress'
 import { CreateFolderDialog } from '@renderer/components/folders/create-folder-dialog'
 import { EditProjectDialog } from '@renderer/components/projects/edit-project-dialog'
 import { DeleteProjectDialog } from '@renderer/components/projects/delete-project-dialog'
 import { useProjectStore, useFolderStore, useDocumentStore, useUIStore } from '@renderer/store'
+import type { DocumentDto } from '@shared/types'
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>()
@@ -41,6 +44,29 @@ export function ProjectPage() {
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
   const [editProjectOpen, setEditProjectOpen] = useState(false)
   const [deleteProjectOpen, setDeleteProjectOpen] = useState(false)
+
+  // Toolbar state
+  const [sortBy, setSortBy] = useState<SortField>('name')
+
+  // Sort documents
+  const sortedDocuments = useMemo(() => {
+    const sorted = [...documents]
+    sorted.sort((a: DocumentDto, b: DocumentDto) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name)
+        case 'date':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        case 'size':
+          return b.file_size - a.file_size
+        case 'type':
+          return a.file_type.localeCompare(b.file_type)
+        default:
+          return 0
+      }
+    })
+    return sorted
+  }, [documents, sortBy])
 
   // Set page title
   useEffect(() => {
@@ -144,15 +170,16 @@ export function ProjectPage() {
 
         {/* Document list panel */}
         <div className="flex flex-1 flex-col overflow-auto">
-          <div className="px-6 py-3">
+          <div className="flex items-center justify-between px-6 py-3">
             <h2 className="text-sm font-semibold">
               {selectedFolderName ? `Documents in "${selectedFolderName}"` : 'All Documents'}
             </h2>
+            <DocumentListToolbar sortBy={sortBy} onSortChange={setSortBy} />
           </div>
           <Separator />
           <div className="flex-1 p-4">
             <DropZone projectId={projectId} folderId={selectedFolderId ?? 0}>
-              <DocumentList documents={documents} onDeleteDocument={handleDeleteDocument} />
+              <DocumentList documents={sortedDocuments} onDeleteDocument={handleDeleteDocument} />
             </DropZone>
           </div>
           <UploadProgress />

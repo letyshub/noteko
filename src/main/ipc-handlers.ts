@@ -6,6 +6,7 @@
  */
 
 import { ipcMain } from 'electron'
+import log from 'electron-log'
 import { IPC_CHANNELS, createIpcSuccess, createIpcError } from '@shared/ipc'
 import type {
   CreateProjectInput,
@@ -17,6 +18,7 @@ import type {
   CreateQuizInput,
   CreateQuizAttemptInput,
   FileUploadInput,
+  AiStreamEvent,
 } from '@shared/types'
 import {
   listProjects,
@@ -34,6 +36,7 @@ import {
   createDocument,
   updateDocument,
   deleteDocument,
+  saveDocumentContent,
   listQuizzesByDocument,
   getQuizWithQuestions,
   createQuiz,
@@ -44,7 +47,110 @@ import {
   copyFileToStorage,
   openFilePickerDialog,
   deleteFileFromStorage,
+  queueDocument,
+  retryDocument,
+  checkHealth,
+  listModels,
+  generate,
+  getSetting,
+  setSetting,
+  getAllSettings,
 } from '@main/services'
+import { getMainWindow } from '@main/main-window'
+import {
+  SUMMARIZE_PROMPT,
+  KEY_POINTS_PROMPT,
+  DEFAULT_OLLAMA_MODEL,
+  RAW_TEXT_MAX_LENGTH,
+} from '@main/services/ai-prompts'
+
+// ---------------------------------------------------------------------------
+// AI generation helper (fire-and-forget, streams to renderer)
+// ---------------------------------------------------------------------------
+
+/**
+ * Send an AI stream event to the renderer process.
+ */
+function sendStreamEvent(event: AiStreamEvent): void {
+  const win = getMainWindow()
+  if (win) {
+    win.webContents.send('ai:stream', event)
+  }
+}
+
+/**
+ * Run AI text generation in the background, streaming chunks to the renderer.
+ *
+ * On completion:
+ * - For 'summary': saves the accumulated text as the document summary.
+ * - For 'key_points': parses lines starting with `-` and saves as string array.
+ *
+ * On error: sends an error event via ai:stream.
+ */
+async function runAiGeneration(
+  documentId: number,
+  operationType: 'summary' | 'key_points',
+  model: string,
+  prompt: string,
+  baseUrl?: string,
+): Promise<void> {
+  let fullText = ''
+
+  try {
+    log.info(`[ai] Starting ${operationType} generation for document ${documentId}`)
+
+    const generator = generate({ model, prompt, baseUrl })
+
+    for await (const chunk of generator) {
+      fullText += chunk
+      sendStreamEvent({
+        documentId,
+        operationType,
+        chunk,
+        done: false,
+      })
+    }
+
+    // Save results
+    if (operationType === 'summary') {
+      saveDocumentContent({ document_id: documentId, summary: fullText })
+    } else {
+      // Parse key points: lines starting with "- "
+      const keyPoints = fullText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith('-'))
+        .map((line) => line.replace(/^-\s*/, ''))
+        .filter((point) => point.length > 0)
+
+      saveDocumentContent({ document_id: documentId, key_points: keyPoints })
+    }
+
+    // Send done event
+    sendStreamEvent({
+      documentId,
+      operationType,
+      chunk: '',
+      done: true,
+    })
+
+    log.info(`[ai] Completed ${operationType} generation for document ${documentId}`)
+  } catch (error) {
+    log.error(
+      `[ai] Error during ${operationType} generation for document ${documentId}:`,
+      error instanceof Error ? error.message : error,
+    )
+
+    // Send error event
+    sendStreamEvent({
+      documentId,
+      operationType,
+      chunk: '',
+      done: true,
+      error: error instanceof Error ? error.message : 'Unknown error during AI generation',
+    })
+  }
+}
 
 /**
  * Register all IPC handlers.
@@ -312,14 +418,146 @@ export function registerIpcHandlers(): void {
           folder_id: input.folderId,
           project_id: input.projectId,
         })
+
+        // 4. Auto-parse: fire-and-forget (no await, no error propagation)
+        queueDocument(document.id)
+
         return createIpcSuccess(document)
       } catch (dbError) {
-        // 4. Rollback: delete copied file on DB failure
+        // 5. Rollback: delete copied file on DB failure
         deleteFileFromStorage(storedPath)
         return createIpcError('FILE_UPLOAD_DB_ERROR', dbError instanceof Error ? dbError.message : 'Unknown error')
       }
     } catch (error) {
       return createIpcError('FILE_UPLOAD_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Document Parsing ──────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.DOC_PARSE, async (_event, documentId: number) => {
+    try {
+      queueDocument(documentId)
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('DOC_PARSE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DOC_PARSE_RETRY, async (_event, documentId: number) => {
+    try {
+      retryDocument(documentId)
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('DOC_PARSE_RETRY_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── AI / Ollama ────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.AI_HEALTH_CHECK, async () => {
+    try {
+      const baseUrl = getSetting('ollama.url') ?? undefined
+      const result = await checkHealth(baseUrl)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('AI_HEALTH_CHECK_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AI_LIST_MODELS, async () => {
+    try {
+      const baseUrl = getSetting('ollama.url') ?? undefined
+      const result = await listModels(baseUrl)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('AI_LIST_MODELS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AI_SUMMARIZE, async (_event, documentId: number) => {
+    try {
+      // 1. Get document with content
+      const result = getDocumentWithContent(documentId)
+      if (!result) {
+        return createIpcError('NOT_FOUND', `Document ${documentId} not found`)
+      }
+
+      const rawText = result.content?.raw_text
+      if (!rawText) {
+        return createIpcError('NO_CONTENT', 'Document has no extracted text to summarize')
+      }
+
+      // 2. Get Ollama settings
+      const baseUrl = getSetting('ollama.url') ?? undefined
+      const model = getSetting('ollama.model') ?? DEFAULT_OLLAMA_MODEL
+
+      // 3. Truncate raw text before building prompt (C-3)
+      const truncatedText = rawText.slice(0, RAW_TEXT_MAX_LENGTH)
+      const prompt = SUMMARIZE_PROMPT.replace('{text}', truncatedText)
+
+      // Fire-and-forget: stream generation to renderer
+      runAiGeneration(documentId, 'summary', model, prompt, baseUrl)
+
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('AI_SUMMARIZE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AI_EXTRACT_KEY_POINTS, async (_event, documentId: number) => {
+    try {
+      // 1. Get document with content
+      const result = getDocumentWithContent(documentId)
+      if (!result) {
+        return createIpcError('NOT_FOUND', `Document ${documentId} not found`)
+      }
+
+      const rawText = result.content?.raw_text
+      if (!rawText) {
+        return createIpcError('NO_CONTENT', 'Document has no extracted text for key point extraction')
+      }
+
+      // 2. Get Ollama settings
+      const baseUrl = getSetting('ollama.url') ?? undefined
+      const model = getSetting('ollama.model') ?? DEFAULT_OLLAMA_MODEL
+
+      // 3. Truncate raw text before building prompt (C-3)
+      const truncatedText = rawText.slice(0, RAW_TEXT_MAX_LENGTH)
+      const prompt = KEY_POINTS_PROMPT.replace('{text}', truncatedText)
+
+      // Fire-and-forget: stream generation to renderer
+      runAiGeneration(documentId, 'key_points', model, prompt, baseUrl)
+
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('AI_EXTRACT_KEY_POINTS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Settings ──────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET, async (_event, key: string) => {
+    try {
+      const value = getSetting(key)
+      return createIpcSuccess(value)
+    } catch (error) {
+      return createIpcError('SETTINGS_GET_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SET, async (_event, key: string, value: string) => {
+    try {
+      setSetting(key, value)
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('SETTINGS_SET_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET_ALL, async () => {
+    try {
+      const result = getAllSettings()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('SETTINGS_GET_ALL_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 }

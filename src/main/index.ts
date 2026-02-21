@@ -4,6 +4,8 @@ import started from 'electron-squirrel-startup'
 import log from 'electron-log'
 import { initializeDatabase, closeDatabase } from '@main/database'
 import { registerIpcHandlers } from '@main/ipc-handlers'
+import { setMainWindow } from '@main/main-window'
+import { resetStaleProcessingStatus, checkHealth } from '@main/services'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -25,6 +27,10 @@ const createWindow = (): void => {
     },
   })
 
+  // Store reference for push events from services (e.g. parsing progress)
+  setMainWindow(mainWindow)
+  mainWindow.on('closed', () => setMainWindow(null))
+
   // Load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
@@ -43,6 +49,21 @@ const createWindow = (): void => {
 app.on('ready', async () => {
   try {
     initializeDatabase()
+    resetStaleProcessingStatus()
+
+    // Fire-and-forget Ollama health check on startup (non-blocking)
+    checkHealth()
+      .then((result) => {
+        if (result.connected) {
+          log.info(`[startup] Ollama is available with ${result.models.length} model(s)`)
+        } else {
+          log.info('[startup] Ollama is not available')
+        }
+      })
+      .catch((err) => {
+        log.warn('[startup] Ollama health check failed:', err instanceof Error ? err.message : err)
+      })
+
     createWindow()
   } catch (error) {
     log.error('Failed to start application:', error)

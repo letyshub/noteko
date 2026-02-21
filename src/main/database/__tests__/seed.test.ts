@@ -34,17 +34,24 @@ const createTables = (sqlite: Database.Database): void => {
       file_size INTEGER NOT NULL,
       folder_id INTEGER NOT NULL REFERENCES folders(id),
       project_id INTEGER NOT NULL REFERENCES projects(id),
+      processing_status TEXT NOT NULL DEFAULT 'pending',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS document_content (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      document_id INTEGER NOT NULL REFERENCES documents(id),
+      document_id INTEGER NOT NULL REFERENCES documents(id) UNIQUE,
       raw_text TEXT,
       summary TEXT,
       key_points TEXT,
       processed_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS quizzes (

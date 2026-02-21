@@ -36,3 +36,12 @@ export {
 
 // File operations
 export { validateFile, copyFileToStorage, openFilePickerDialog, deleteFileFromStorage } from './file-service'
+
+// Parsing operations
+export { parseDocument, queueDocument, retryDocument, resetStaleProcessingStatus } from './parsing-service'
+
+// Ollama AI operations
+export { checkHealth, listModels, generate } from './ollama-service'
+
+// Settings operations
+export { getSetting, setSetting, getAllSettings } from './settings-service'

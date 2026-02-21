@@ -57,6 +57,12 @@ export interface UpdateFolderInput {
 }
 
 // ---------------------------------------------------------------------------
+// Processing Status
+// ---------------------------------------------------------------------------
+
+export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'unsupported'
+
+// ---------------------------------------------------------------------------
 // Document
 // ---------------------------------------------------------------------------
 
@@ -68,6 +74,7 @@ export interface DocumentDto {
   file_size: number
   folder_id: number
   project_id: number
+  processing_status: ProcessingStatus
   created_at: string
   updated_at: string
 }
@@ -157,6 +164,32 @@ export interface CreateQuizAttemptInput {
   score: number
   total_questions: number
   answers?: Record<string, string>
+}
+
+// ---------------------------------------------------------------------------
+// AI / Ollama
+// ---------------------------------------------------------------------------
+
+/** Event payload streamed from main to renderer during AI operations. */
+export interface AiStreamEvent {
+  documentId: number
+  operationType: 'summary' | 'key_points'
+  chunk: string
+  done: boolean
+  error?: string
+}
+
+/** Model information returned by Ollama's /api/tags endpoint. */
+export interface OllamaModel {
+  name: string
+  size: number
+  modified_at: string
+}
+
+/** Result of an Ollama health check. */
+export interface OllamaHealthResult {
+  connected: boolean
+  models: string[]
 }
 
 // ---------------------------------------------------------------------------

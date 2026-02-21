@@ -52,16 +52,31 @@ const electronAPI: ElectronAPI = {
   'file:upload': (input) => ipcRenderer.invoke(IPC_CHANNELS.FILE_UPLOAD, input),
   'file:validate': (filePath) => ipcRenderer.invoke(IPC_CHANNELS.FILE_VALIDATE, filePath),
 
+  // Document Parsing
+  'doc:parse': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.DOC_PARSE, documentId),
+  'doc:parse:retry': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.DOC_PARSE_RETRY, documentId),
+
+  // AI / Ollama
+  'ai:health-check': () => ipcRenderer.invoke(IPC_CHANNELS.AI_HEALTH_CHECK),
+  'ai:list-models': () => ipcRenderer.invoke(IPC_CHANNELS.AI_LIST_MODELS),
+  'ai:summarize': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_SUMMARIZE, documentId),
+  'ai:extract-key-points': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT_KEY_POINTS, documentId),
+
+  // Settings
+  'settings:get': (key) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET, key),
+  'settings:set': (key, value) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, key, value),
+  'settings:get-all': () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_ALL),
+
   // Event subscriptions (main -> renderer push)
   on: (channel, callback) => {
     const listener = (_event: IpcRendererEvent, data: unknown) =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       callback(data as any)
     ipcRenderer.on(channel, listener)
+    return listener
   },
   off: (channel, callback) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ipcRenderer.removeListener(channel, callback as any)
+    ipcRenderer.removeListener(channel, callback)
   },
 }
 

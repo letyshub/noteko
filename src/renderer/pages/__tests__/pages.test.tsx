@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { DashboardPage } from '../dashboard-page'
 import { ProjectPage } from '../project-page'
@@ -25,7 +25,22 @@ beforeEach(() => {
     'db:folders:delete': vi.fn(),
     'db:documents:list': vi.fn().mockResolvedValue({ success: true, data: [] }),
     'db:documents:list-by-project': vi.fn().mockResolvedValue({ success: true, data: [] }),
-    'db:documents:get': vi.fn(),
+    'db:documents:get': vi.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 7,
+        name: 'Test Document',
+        file_path: '/path/test.pdf',
+        file_type: 'application/pdf',
+        file_size: 1024,
+        folder_id: 1,
+        project_id: 1,
+        processing_status: 'pending',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        content: null,
+      },
+    }),
     'db:documents:create': vi.fn(),
     'db:documents:update': vi.fn(),
     'db:documents:delete': vi.fn(),
@@ -35,7 +50,17 @@ beforeEach(() => {
     'db:quizzes:delete': vi.fn(),
     'db:quiz-attempts:list': vi.fn(),
     'db:quiz-attempts:create': vi.fn(),
-    on: vi.fn(),
+    'ai:health-check': vi.fn().mockResolvedValue({
+      success: true,
+      data: { connected: false, models: [] },
+    }),
+    'ai:summarize': vi.fn(),
+    'ai:extract-key-points': vi.fn(),
+    'settings:get-all': vi.fn().mockResolvedValue({
+      success: true,
+      data: {},
+    }),
+    on: vi.fn(() => vi.fn()),
     off: vi.fn(),
   } as unknown as typeof window.electronAPI
 })
@@ -70,7 +95,7 @@ describe('ProjectPage', () => {
 })
 
 describe('DocumentPage', () => {
-  it('renders document page with document id from route params', () => {
+  it('renders document page with document id from route params', async () => {
     render(
       <MemoryRouter initialEntries={['/documents/7']}>
         <Routes>
@@ -79,7 +104,10 @@ describe('DocumentPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Document')).toBeInTheDocument()
+    // The rebuilt DocumentPage fetches document data and displays the document name
+    await waitFor(() => {
+      expect(screen.getByText('Test Document')).toBeInTheDocument()
+    })
   })
 })
 

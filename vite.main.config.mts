@@ -1,21 +1,27 @@
 import { defineConfig } from 'vite'
 import path from 'node:path'
-import { builtinModules } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Packages to externalize from the main-process bundle.
+// The forge plugin already externalizes Node.js builtins and 'electron/*',
+// but we must also externalize native modules and packages used via dynamic import().
+const externalPackages = [
+  'better-sqlite3',
+  'drizzle-orm',
+  'drizzle-orm/better-sqlite3',
+  'pdf-parse',
+  'mammoth',
+  'tesseract.js',
+  'electron-log',
+]
 
 // https://vitejs.dev/config
 export default defineConfig({
   build: {
     rollupOptions: {
-      external: (id) => {
-        // Externalize Node.js builtins and all node_modules packages
-        // This prevents Vite from bundling native modules like better-sqlite3
-        if (builtinModules.includes(id) || id.startsWith('node:')) return true
-        if (!id.startsWith('.') && !path.isAbsolute(id)) return true
-        return false
-      },
+      external: externalPackages,
     },
   },
   resolve: {

@@ -26,6 +26,7 @@ const mockDocument: DocumentDto = {
   file_size: 1024,
   folder_id: 1,
   project_id: 1,
+  processing_status: 'pending',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }
@@ -38,6 +39,7 @@ const mockDocument2: DocumentDto = {
   file_size: 512,
   folder_id: 1,
   project_id: 1,
+  processing_status: 'completed',
   created_at: '2026-01-02T00:00:00Z',
   updated_at: '2026-01-02T00:00:00Z',
 }

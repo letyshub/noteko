@@ -29,6 +29,9 @@ import type {
   QuizDto,
   QuizDetailDto,
   QuizAttemptDto,
+  AiStreamEvent,
+  OllamaModel,
+  OllamaHealthResult,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -74,6 +77,21 @@ export const IPC_CHANNELS = {
   FILE_OPEN_DIALOG: 'file:open-dialog',
   FILE_UPLOAD: 'file:upload',
   FILE_VALIDATE: 'file:validate',
+
+  // Document Parsing
+  DOC_PARSE: 'doc:parse',
+  DOC_PARSE_RETRY: 'doc:parse:retry',
+
+  // AI / Ollama
+  AI_HEALTH_CHECK: 'ai:health-check',
+  AI_LIST_MODELS: 'ai:list-models',
+  AI_SUMMARIZE: 'ai:summarize',
+  AI_EXTRACT_KEY_POINTS: 'ai:extract-key-points',
+
+  // Settings
+  SETTINGS_GET: 'settings:get',
+  SETTINGS_SET: 'settings:set',
+  SETTINGS_GET_ALL: 'settings:get-all',
 
   // Events (push from main to renderer)
   PROGRESS: 'app:progress',
@@ -201,6 +219,21 @@ export interface IpcChannelMap {
     args: [filePath: string]
     response: IpcResult<FileValidationResult>
   }
+
+  // Document Parsing
+  'doc:parse': { args: [documentId: number]; response: IpcResult<void> }
+  'doc:parse:retry': { args: [documentId: number]; response: IpcResult<void> }
+
+  // AI / Ollama
+  'ai:health-check': { args: []; response: IpcResult<OllamaHealthResult> }
+  'ai:list-models': { args: []; response: IpcResult<OllamaModel[]> }
+  'ai:summarize': { args: [documentId: number]; response: IpcResult<void> }
+  'ai:extract-key-points': { args: [documentId: number]; response: IpcResult<void> }
+
+  // Settings
+  'settings:get': { args: [key: string]; response: IpcResult<string | null> }
+  'settings:set': { args: [key: string, value: string]; response: IpcResult<void> }
+  'settings:get-all': { args: []; response: IpcResult<Record<string, string>> }
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +250,7 @@ export interface ProgressEvent {
 /** Maps event channels to their payload types. */
 export interface IpcEventMap {
   'app:progress': ProgressEvent
+  'ai:stream': AiStreamEvent
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +265,13 @@ export interface IpcEventMap {
 export type ElectronAPI = {
   [K in keyof IpcChannelMap]: (...args: IpcChannelMap[K]['args']) => Promise<IpcChannelMap[K]['response']>
 } & {
-  on: <K extends keyof IpcEventMap>(channel: K, callback: (data: IpcEventMap[K]) => void) => void
-  off: <K extends keyof IpcEventMap>(channel: K, callback: (data: IpcEventMap[K]) => void) => void
+  on: <K extends keyof IpcEventMap>(channel: K, callback: (data: IpcEventMap[K]) => void) => WrappedListener
+  off: <K extends keyof IpcEventMap>(channel: K, callback: WrappedListener) => void
 }
+
+/**
+ * Opaque type for the wrapped IPC listener returned by `on()`.
+ * Must be passed back to `off()` to properly unsubscribe.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type WrappedListener = (...args: any[]) => void

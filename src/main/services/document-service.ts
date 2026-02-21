@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { getDb } from '@main/database/connection'
 import { documents, documentContent } from '@main/database/schema'
 import type { Document, DocumentContent } from '@main/database/schema'
@@ -71,6 +71,16 @@ export const saveDocumentContent = (data: {
     .values({
       ...data,
       processed_at: new Date().toISOString(),
+    })
+    .onConflictDoUpdate({
+      target: documentContent.document_id,
+      set: {
+        raw_text: data.raw_text !== undefined ? sql`${data.raw_text}` : sql`${documentContent.raw_text}`,
+        summary: data.summary !== undefined ? sql`${data.summary}` : sql`${documentContent.summary}`,
+        key_points:
+          data.key_points !== undefined ? sql`${JSON.stringify(data.key_points)}` : sql`${documentContent.key_points}`,
+        processed_at: new Date().toISOString(),
+      },
     })
     .returning()
     .get()
