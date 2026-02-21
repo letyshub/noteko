@@ -90,6 +90,62 @@ vi.mock('@renderer/components/ui/separator', () => ({
 }))
 
 // ---------------------------------------------------------------------------
+// Polyfills for jsdom (needed by react-pdf / react-resizable-panels)
+// ---------------------------------------------------------------------------
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}
+
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  globalThis.DOMMatrix = class DOMMatrix {
+    constructor() {
+      return {}
+    }
+  } as any
+}
+
+// ---------------------------------------------------------------------------
+// Mock react-pdf and pdf-worker (used transitively by DocumentViewer)
+// ---------------------------------------------------------------------------
+vi.mock('react-pdf', () => ({
+  Document: ({ children, ...props }: any) => (
+    <div data-testid="pdf-document" {...props}>
+      {children}
+    </div>
+  ),
+  Page: ({ pageNumber, scale }: any) => (
+    <div data-testid="pdf-page" data-page={pageNumber} data-scale={scale}>
+      Page {pageNumber}
+    </div>
+  ),
+}))
+
+vi.mock('@renderer/lib/pdf-worker', () => ({}))
+
+// ---------------------------------------------------------------------------
+// Mock resizable to avoid ResizeObserver issues
+// ---------------------------------------------------------------------------
+vi.mock('@renderer/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children, orientation, ...props }: any) => (
+    <div data-testid="resizable-panel-group" data-orientation={orientation} {...props}>
+      {children}
+    </div>
+  ),
+  ResizablePanel: ({ children, defaultSize, minSize, ...props }: any) => (
+    <div data-testid="resizable-panel" data-default-size={defaultSize} data-min-size={minSize} {...props}>
+      {children}
+    </div>
+  ),
+  ResizableHandle: ({ withHandle, ...props }: any) => (
+    <div data-testid="resizable-handle" data-with-handle={withHandle} {...props} />
+  ),
+}))
+
+// ---------------------------------------------------------------------------
 // Test data
 // ---------------------------------------------------------------------------
 const completedContent: DocumentContentDto = {
@@ -105,7 +161,7 @@ const completedDocument: DocumentDetailDto = {
   id: 42,
   name: 'research-paper.pdf',
   file_path: '/files/research-paper.pdf',
-  file_type: 'application/pdf',
+  file_type: 'pdf',
   file_size: 2457600,
   folder_id: 1,
   project_id: 1,
@@ -113,6 +169,8 @@ const completedDocument: DocumentDetailDto = {
   created_at: '2026-01-10T08:00:00Z',
   updated_at: '2026-01-15T10:00:00Z',
   content: completedContent,
+  project_name: 'Test Project',
+  folder_name: 'Test Folder',
 }
 
 const failedDocument: DocumentDetailDto = {
@@ -244,9 +302,9 @@ describe('DocumentPage', () => {
     // Should have called the IPC to fetch the document
     expect(mockElectronAPI['db:documents:get']).toHaveBeenCalledWith(42)
 
-    // Wait for the document content to appear
+    // Wait for the document content to appear (name appears in breadcrumb + metadata)
     await waitFor(() => {
-      expect(screen.getByText('research-paper.pdf')).toBeInTheDocument()
+      expect(screen.getAllByText('research-paper.pdf').length).toBeGreaterThanOrEqual(1)
     })
 
     // Raw text should be displayed
@@ -269,9 +327,9 @@ describe('DocumentPage', () => {
     const user = userEvent.setup()
     render(<DocumentPage />)
 
-    // Wait for the failed document to render
+    // Wait for the failed document to render (name appears in breadcrumb + metadata)
     await waitFor(() => {
-      expect(screen.getByText('corrupt-file.pdf')).toBeInTheDocument()
+      expect(screen.getAllByText('corrupt-file.pdf').length).toBeGreaterThanOrEqual(1)
     })
 
     // Find and click the retry button
@@ -305,7 +363,7 @@ describe('DocumentPage', () => {
     render(<DocumentPage />)
 
     await waitFor(() => {
-      expect(screen.getByText('image-scan.png')).toBeInTheDocument()
+      expect(screen.getAllByText('image-scan.png').length).toBeGreaterThanOrEqual(1)
     })
 
     // AI buttons should be disabled when no raw_text
@@ -325,5 +383,23 @@ describe('DocumentPage', () => {
     // Should show skeleton loading indicators
     const skeletons = screen.getAllByTestId('skeleton')
     expect(skeletons.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('clicking back button calls navigate(-1)', async () => {
+    const user = userEvent.setup()
+    render(<DocumentPage />)
+
+    // Wait for the document to load
+    await waitFor(() => {
+      expect(screen.getAllByText('research-paper.pdf').length).toBeGreaterThanOrEqual(1)
+    })
+
+    // Find and click the back button (aria-label="Go back")
+    const backButton = screen.getByRole('button', { name: /go back/i })
+    expect(backButton).toBeInTheDocument()
+
+    await user.click(backButton)
+
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
   })
 })

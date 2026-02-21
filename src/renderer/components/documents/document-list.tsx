@@ -8,15 +8,17 @@ import {
 } from '@renderer/components/ui/dropdown-menu'
 import { Button } from '@renderer/components/ui/button'
 import { ProcessingStatusBadge } from '@renderer/components/documents/processing-status-badge'
+import { DocumentGridItem } from '@renderer/components/documents/document-grid-item'
 import { formatFileSize, getFileIcon } from '@renderer/components/documents/document-utils'
 import type { DocumentDto } from '@shared/types'
 
 interface DocumentListProps {
   documents: DocumentDto[]
   onDeleteDocument: (id: number) => void
+  viewMode?: 'list' | 'grid'
 }
 
-export function DocumentList({ documents, onDeleteDocument }: DocumentListProps) {
+export function DocumentList({ documents, onDeleteDocument, viewMode = 'list' }: DocumentListProps) {
   const navigate = useNavigate()
 
   if (documents.length === 0) {
@@ -24,6 +26,16 @@ export function DocumentList({ documents, onDeleteDocument }: DocumentListProps)
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <File className="mb-3 h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">No documents in this folder</p>
+      </div>
+    )
+  }
+
+  if (viewMode === 'grid') {
+    return (
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+        {documents.map((doc) => (
+          <DocumentGridItem key={doc.id} document={doc} onClick={() => navigate(`/documents/${doc.id}`)} />
+        ))}
       </div>
     )
   }

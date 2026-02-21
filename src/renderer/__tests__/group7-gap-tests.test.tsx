@@ -15,6 +15,25 @@ import { render, screen, waitFor, cleanup, act } from '@testing-library/react'
 import type { DocumentDetailDto, DocumentContentDto } from '@shared/types'
 
 // ---------------------------------------------------------------------------
+// Polyfills for jsdom (needed by react-pdf / react-resizable-panels)
+// ---------------------------------------------------------------------------
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}
+
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  globalThis.DOMMatrix = class DOMMatrix {
+    constructor() {
+      return {}
+    }
+  } as any
+}
+
+// ---------------------------------------------------------------------------
 // Mock electronAPI — shared across renderer tests in this file
 // ---------------------------------------------------------------------------
 const mockElectronAPI: Record<string, any> = {
@@ -111,6 +130,43 @@ vi.mock('@renderer/components/ui/label', () => ({
 }))
 
 // ---------------------------------------------------------------------------
+// Mock react-pdf and pdf-worker (used transitively by DocumentViewer)
+// ---------------------------------------------------------------------------
+vi.mock('react-pdf', () => ({
+  Document: ({ children, ...props }: any) => (
+    <div data-testid="pdf-document" {...props}>
+      {children}
+    </div>
+  ),
+  Page: ({ pageNumber, scale }: any) => (
+    <div data-testid="pdf-page" data-page={pageNumber} data-scale={scale}>
+      Page {pageNumber}
+    </div>
+  ),
+}))
+
+vi.mock('@renderer/lib/pdf-worker', () => ({}))
+
+// ---------------------------------------------------------------------------
+// Mock resizable to avoid ResizeObserver issues
+// ---------------------------------------------------------------------------
+vi.mock('@renderer/components/ui/resizable', () => ({
+  ResizablePanelGroup: ({ children, orientation, ...props }: any) => (
+    <div data-testid="resizable-panel-group" data-orientation={orientation} {...props}>
+      {children}
+    </div>
+  ),
+  ResizablePanel: ({ children, defaultSize, minSize, ...props }: any) => (
+    <div data-testid="resizable-panel" data-default-size={defaultSize} data-min-size={minSize} {...props}>
+      {children}
+    </div>
+  ),
+  ResizableHandle: ({ withHandle, ...props }: any) => (
+    <div data-testid="resizable-handle" data-with-handle={withHandle} {...props} />
+  ),
+}))
+
+// ---------------------------------------------------------------------------
 // Test data helpers
 // ---------------------------------------------------------------------------
 const completedContent: DocumentContentDto = {
@@ -134,6 +190,8 @@ const completedDocument: DocumentDetailDto = {
   created_at: '2026-01-10T08:00:00Z',
   updated_at: '2026-01-15T10:00:00Z',
   content: completedContent,
+  project_name: 'Test Project',
+  folder_name: 'Test Folder',
 }
 
 // ===========================================================================

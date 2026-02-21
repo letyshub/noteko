@@ -79,10 +79,11 @@ const sampleDocument: DocumentDto = {
   id: 1,
   name: 'notes.pdf',
   file_path: '/files/notes.pdf',
-  file_type: 'application/pdf',
+  file_type: 'pdf',
   file_size: 2457600, // ~2.4 MB
   folder_id: 1,
   project_id: 1,
+  processing_status: 'completed',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }
@@ -91,10 +92,11 @@ const sampleDocument2: DocumentDto = {
   id: 2,
   name: 'photo.png',
   file_path: '/files/photo.png',
-  file_type: 'image/png',
+  file_type: 'png',
   file_size: 156000, // ~156 KB
   folder_id: 1,
   project_id: 1,
+  processing_status: 'completed',
   created_at: '2026-01-02T00:00:00Z',
   updated_at: '2026-01-02T00:00:00Z',
 }
@@ -103,10 +105,11 @@ const sampleDocument3: DocumentDto = {
   id: 3,
   name: 'data.csv',
   file_path: '/files/data.csv',
-  file_type: 'text/csv',
+  file_type: 'csv',
   file_size: 512,
   folder_id: 1,
   project_id: 1,
+  processing_status: 'completed',
   created_at: '2026-01-03T00:00:00Z',
   updated_at: '2026-01-03T00:00:00Z',
 }

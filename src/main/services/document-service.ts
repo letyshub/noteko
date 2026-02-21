@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb } from '@main/database/connection'
-import { documents, documentContent } from '@main/database/schema'
+import { documents, documentContent, projects, folders } from '@main/database/schema'
 import type { Document, DocumentContent } from '@main/database/schema'
 
 export const listDocumentsByProject = (projectId: number) => {
@@ -17,13 +17,23 @@ export const getDocument = (id: number) => {
 
 export const getDocumentWithContent = (
   id: number,
-): { document: Document; content: DocumentContent | undefined } | undefined => {
+):
+  | { document: Document; content: DocumentContent | undefined; project_name: string; folder_name: string }
+  | undefined => {
   const doc = getDb().select().from(documents).where(eq(documents.id, id)).get()
   if (!doc) return undefined
 
   const content = getDb().select().from(documentContent).where(eq(documentContent.document_id, id)).get()
 
-  return { document: doc, content }
+  const project = getDb().select({ name: projects.name }).from(projects).where(eq(projects.id, doc.project_id)).get()
+  const folder = getDb().select({ name: folders.name }).from(folders).where(eq(folders.id, doc.folder_id)).get()
+
+  return {
+    document: doc,
+    content,
+    project_name: project?.name ?? '',
+    folder_name: folder?.name ?? '',
+  }
 }
 
 export const createDocument = (data: {

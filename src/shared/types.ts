@@ -82,6 +82,8 @@ export interface DocumentDto {
 /** Includes parsed content for single-document views. */
 export interface DocumentDetailDto extends DocumentDto {
   content: DocumentContentDto | null
+  project_name: string
+  folder_name: string
 }
 
 export interface DocumentContentDto {

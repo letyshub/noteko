@@ -137,27 +137,44 @@ export function DocumentPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col gap-4 p-6">
-        {/* Metadata skeleton */}
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-md" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-5 w-48" />
-            <Skeleton className="h-3 w-32" />
-          </div>
-        </div>
-        <Skeleton className="h-px w-full" />
-        {/* AI actions skeleton */}
-        <div className="flex items-center justify-between">
+      <div className="flex flex-1 flex-col">
+        {/* Breadcrumb skeleton */}
+        <div className="flex items-center gap-2 border-b px-4 py-2">
+          <Skeleton className="h-8 w-16" />
           <Skeleton className="h-4 w-24" />
-          <div className="flex gap-2">
-            <Skeleton className="h-8 w-28" />
-            <Skeleton className="h-8 w-28" />
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        {/* Two-column skeleton */}
+        <div className="flex flex-1">
+          {/* Left panel skeleton (preview area) */}
+          <div className="flex flex-1 items-center justify-center border-r p-8">
+            <Skeleton className="h-[400px] w-[300px]" />
+          </div>
+          {/* Right panel skeleton (metadata + text) */}
+          <div className="flex w-[45%] flex-col gap-4 p-4">
+            {/* Metadata skeleton */}
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-md" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+            <Skeleton className="h-px w-full" />
+            {/* AI actions skeleton */}
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-24" />
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-28" />
+                <Skeleton className="h-8 w-28" />
+              </div>
+            </div>
+            {/* Text area skeleton */}
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="flex-1 min-h-[200px]" />
           </div>
         </div>
-        {/* Text area skeleton */}
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="flex-1 min-h-[200px]" />
       </div>
     )
   }

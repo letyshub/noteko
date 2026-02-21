@@ -33,6 +33,8 @@ export function ProjectPage() {
   const deleteDocument = useDocumentStore((s) => s.deleteDocument)
 
   const setCurrentPageTitle = useUIStore((s) => s.setCurrentPageTitle)
+  const documentViewMode = useUIStore((s) => s.documentViewMode)
+  const setDocumentViewMode = useUIStore((s) => s.setDocumentViewMode)
 
   // Compound state: folder selection auto-resets when project changes (no effect needed)
   const [selectedFolder, setSelectedFolder] = useState<{
@@ -174,12 +176,21 @@ export function ProjectPage() {
             <h2 className="text-sm font-semibold">
               {selectedFolderName ? `Documents in "${selectedFolderName}"` : 'All Documents'}
             </h2>
-            <DocumentListToolbar sortBy={sortBy} onSortChange={setSortBy} />
+            <DocumentListToolbar
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              viewMode={documentViewMode}
+              onViewModeChange={setDocumentViewMode}
+            />
           </div>
           <Separator />
           <div className="flex-1 p-4">
             <DropZone projectId={projectId} folderId={selectedFolderId ?? 0}>
-              <DocumentList documents={sortedDocuments} onDeleteDocument={handleDeleteDocument} />
+              <DocumentList
+                documents={sortedDocuments}
+                onDeleteDocument={handleDeleteDocument}
+                viewMode={documentViewMode}
+              />
             </DropZone>
           </div>
           <UploadProgress />

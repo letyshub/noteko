@@ -280,6 +280,8 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess({
         ...result.document,
         content: result.content ?? null,
+        project_name: result.project_name,
+        folder_name: result.folder_name,
       })
     } catch (error) {
       return createIpcError('DOCUMENTS_GET_ERROR', error instanceof Error ? error.message : 'Unknown error')

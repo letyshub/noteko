@@ -1,4 +1,4 @@
-import { ArrowUpDown } from 'lucide-react'
+import { ArrowUpDown, LayoutGrid, List } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   DropdownMenu,
@@ -12,6 +12,8 @@ export type SortField = 'name' | 'date' | 'size' | 'type'
 interface DocumentListToolbarProps {
   sortBy: SortField
   onSortChange: (field: SortField) => void
+  viewMode?: 'list' | 'grid'
+  onViewModeChange?: (mode: 'list' | 'grid') => void
 }
 
 const sortLabels: Record<SortField, string> = {
@@ -21,7 +23,12 @@ const sortLabels: Record<SortField, string> = {
   type: 'Type',
 }
 
-export function DocumentListToolbar({ sortBy, onSortChange }: DocumentListToolbarProps) {
+export function DocumentListToolbar({
+  sortBy,
+  onSortChange,
+  viewMode = 'list',
+  onViewModeChange,
+}: DocumentListToolbarProps) {
   return (
     <div className="flex items-center gap-2">
       {/* Sort dropdown */}
@@ -44,6 +51,30 @@ export function DocumentListToolbar({ sortBy, onSortChange }: DocumentListToolba
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* View mode toggle */}
+      {onViewModeChange && (
+        <>
+          <Button
+            variant={viewMode === 'list' ? 'outline' : 'ghost'}
+            size="icon"
+            aria-label="List view"
+            aria-pressed={viewMode === 'list'}
+            onClick={() => onViewModeChange('list')}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'grid' ? 'outline' : 'ghost'}
+            size="icon"
+            aria-label="Grid view"
+            aria-pressed={viewMode === 'grid'}
+            onClick={() => onViewModeChange('grid')}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        </>
+      )}
     </div>
   )
 }
