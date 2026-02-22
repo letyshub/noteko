@@ -46,10 +46,15 @@ import {
   deleteQuiz,
   listAttempts,
   recordAttempt,
+  listAllAttempts,
+  getOverviewStats,
+  getPerQuizStats,
+  getWeakAreas,
   validateFile,
   copyFileToStorage,
   openFilePickerDialog,
   deleteFileFromStorage,
+  exportHistoryAsJson,
   queueDocument,
   retryDocument,
   checkHealth,
@@ -600,6 +605,49 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // ─── Quiz History (aggregates) ──────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.QUIZ_HISTORY_LIST_ALL, async () => {
+    try {
+      const result = listAllAttempts()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('QUIZ_HISTORY_LIST_ALL_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.QUIZ_HISTORY_OVERVIEW_STATS, async () => {
+    try {
+      const result = getOverviewStats()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError(
+        'QUIZ_HISTORY_OVERVIEW_STATS_ERROR',
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.QUIZ_HISTORY_PER_QUIZ_STATS, async () => {
+    try {
+      const result = getPerQuizStats()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError(
+        'QUIZ_HISTORY_PER_QUIZ_STATS_ERROR',
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.QUIZ_HISTORY_WEAK_AREAS, async () => {
+    try {
+      const result = getWeakAreas()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('QUIZ_HISTORY_WEAK_AREAS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
   // ─── Files ───────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.FILE_OPEN_DIALOG, async () => {
     try {
@@ -652,6 +700,15 @@ export function registerIpcHandlers(): void {
       }
     } catch (error) {
       return createIpcError('FILE_UPLOAD_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.FILE_EXPORT_JSON, async (_event, data: string, defaultFilename: string) => {
+    try {
+      const result = await exportHistoryAsJson(data, defaultFilename)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('FILE_EXPORT_JSON_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 

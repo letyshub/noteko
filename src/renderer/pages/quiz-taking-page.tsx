@@ -40,6 +40,7 @@ import { Label } from '@renderer/components/ui/label'
 import { DifficultyBadge } from '@renderer/components/quiz/difficulty-badge'
 import { typeBadgeLabel, OPTION_LETTERS } from '@renderer/components/quiz/question-utils'
 import { scoreQuiz, formatElapsedTime, type QuizScoreResult } from '@renderer/lib/quiz-scoring'
+import { getScoreColor } from '@renderer/lib/score-utils'
 import { cn } from '@renderer/lib/utils'
 import type { QuizQuestionDto, QuizAttemptDto } from '@shared/types'
 
@@ -552,12 +553,7 @@ function ResultsScreen({
   onReview: () => void
   onRetake: () => void
 }) {
-  const scoreColor =
-    score.percentage >= 80
-      ? 'text-green-600 dark:text-green-400'
-      : score.percentage >= 60
-        ? 'text-yellow-600 dark:text-yellow-400'
-        : 'text-red-600 dark:text-red-400'
+  const scoreColor = getScoreColor(score.percentage)
 
   return (
     <ScrollArea className="flex-1">

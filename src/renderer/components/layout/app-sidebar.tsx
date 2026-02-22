@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { House, Settings, Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { House, BarChart3, Settings, Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +32,7 @@ import type { ProjectDto } from '@shared/types'
 
 const navItems = [
   { title: 'Dashboard', href: '/', icon: House },
+  { title: 'Quiz History', href: '/quiz-history', icon: BarChart3 },
   { title: 'Settings', href: '/settings', icon: Settings },
 ]
 

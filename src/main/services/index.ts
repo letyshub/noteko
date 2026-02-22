@@ -32,10 +32,20 @@ export {
   deleteQuiz,
   recordAttempt,
   listAttempts,
+  listAllAttempts,
+  getOverviewStats,
+  getPerQuizStats,
+  getWeakAreas,
 } from './quiz-service'
 
 // File operations
-export { validateFile, copyFileToStorage, openFilePickerDialog, deleteFileFromStorage } from './file-service'
+export {
+  validateFile,
+  copyFileToStorage,
+  openFilePickerDialog,
+  deleteFileFromStorage,
+  exportHistoryAsJson,
+} from './file-service'
 
 // Parsing operations
 export { parseDocument, queueDocument, retryDocument, resetStaleProcessingStatus } from './parsing-service'

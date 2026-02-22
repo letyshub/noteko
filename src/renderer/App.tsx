@@ -12,6 +12,7 @@ import { ProjectPage } from '@renderer/pages/project-page'
 import { DocumentPage } from '@renderer/pages/document-page'
 import { QuizPage } from '@renderer/pages/quiz-page'
 import { QuizTakingPage } from '@renderer/pages/quiz-taking-page'
+import { QuizHistoryPage } from '@renderer/pages/quiz-history-page'
 import { SettingsPage } from '@renderer/pages/settings-page'
 
 export function App() {
@@ -46,6 +47,7 @@ export function App() {
                 <Route path="/documents/:id" element={<DocumentPage />} />
                 <Route path="/quizzes/:id" element={<QuizPage />} />
                 <Route path="/quizzes/:id/take" element={<QuizTakingPage />} />
+                <Route path="/quiz-history" element={<QuizHistoryPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
               </Routes>
             </ErrorBoundary>

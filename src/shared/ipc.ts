@@ -29,6 +29,10 @@ import type {
   QuizDto,
   QuizDetailDto,
   QuizAttemptDto,
+  QuizAttemptWithContextDto,
+  QuizOverviewStatsDto,
+  QuizPerQuizStatsDto,
+  WeakAreaDto,
   AiStreamEvent,
   OllamaModel,
   OllamaHealthResult,
@@ -75,10 +79,17 @@ export const IPC_CHANNELS = {
   QUIZ_ATTEMPTS_LIST: 'db:quiz-attempts:list',
   QUIZ_ATTEMPTS_CREATE: 'db:quiz-attempts:create',
 
+  // Quiz History (aggregates)
+  QUIZ_HISTORY_LIST_ALL: 'db:quiz-history:list-all',
+  QUIZ_HISTORY_OVERVIEW_STATS: 'db:quiz-history:overview-stats',
+  QUIZ_HISTORY_PER_QUIZ_STATS: 'db:quiz-history:per-quiz-stats',
+  QUIZ_HISTORY_WEAK_AREAS: 'db:quiz-history:weak-areas',
+
   // Files
   FILE_OPEN_DIALOG: 'file:open-dialog',
   FILE_UPLOAD: 'file:upload',
   FILE_VALIDATE: 'file:validate',
+  FILE_EXPORT_JSON: 'file:export-json',
 
   // Document Parsing
   DOC_PARSE: 'doc:parse',
@@ -213,6 +224,12 @@ export interface IpcChannelMap {
     response: IpcResult<QuizAttemptDto>
   }
 
+  // Quiz History (aggregates)
+  'db:quiz-history:list-all': { args: []; response: IpcResult<QuizAttemptWithContextDto[]> }
+  'db:quiz-history:overview-stats': { args: []; response: IpcResult<QuizOverviewStatsDto> }
+  'db:quiz-history:per-quiz-stats': { args: []; response: IpcResult<QuizPerQuizStatsDto[]> }
+  'db:quiz-history:weak-areas': { args: []; response: IpcResult<WeakAreaDto[]> }
+
   // Files
   'file:open-dialog': { args: []; response: IpcResult<string[]> }
   'file:upload': {
@@ -222,6 +239,10 @@ export interface IpcChannelMap {
   'file:validate': {
     args: [filePath: string]
     response: IpcResult<FileValidationResult>
+  }
+  'file:export-json': {
+    args: [data: string, defaultFilename: string]
+    response: IpcResult<string | null>
   }
 
   // Document Parsing

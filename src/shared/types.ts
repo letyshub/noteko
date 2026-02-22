@@ -177,6 +177,40 @@ export interface CreateQuizAttemptInput {
   answers?: Record<string, string>
 }
 
+/** Quiz attempt enriched with quiz and document context for history views. */
+export interface QuizAttemptWithContextDto extends QuizAttemptDto {
+  quiz_title: string
+  document_name: string
+  document_id: number
+}
+
+/** Aggregate statistics across all quiz attempts. */
+export interface QuizOverviewStatsDto {
+  total_attempts: number
+  average_score: number
+  best_score: number
+  quizzes_taken: number
+}
+
+/** Per-quiz aggregate statistics for the history page. */
+export interface QuizPerQuizStatsDto {
+  quiz_id: number
+  quiz_title: string
+  document_name: string
+  average_score: number
+  attempt_count: number
+  best_score: number
+}
+
+/** A weak area identified from quiz attempt error patterns. */
+export interface WeakAreaDto {
+  label: string
+  category: 'type' | 'difficulty'
+  error_count: number
+  total_count: number
+  error_rate: number
+}
+
 // ---------------------------------------------------------------------------
 // AI / Ollama
 // ---------------------------------------------------------------------------

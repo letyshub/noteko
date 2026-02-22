@@ -6,8 +6,8 @@ import type { DocumentContentDto, AiStreamEvent } from '../types'
 describe('IPC_CHANNELS', () => {
   it('should have the expected number of channel entries', () => {
     const channelKeys = Object.keys(IPC_CHANNELS)
-    // ping + 5 projects + 4 folders + 6 documents + 4 quizzes + 2 quiz-attempts + 3 files + 2 parsing + 6 ai + 3 settings + 1 progress = 37
-    expect(channelKeys).toHaveLength(37)
+    // ping + 5 projects + 4 folders + 6 documents + 4 quizzes + 2 quiz-attempts + 4 quiz-history + 3 files + 1 file-export + 2 parsing + 6 ai + 3 settings + 1 progress = 42
+    expect(channelKeys).toHaveLength(42)
   })
 
   it('should include the ping channel for backward compatibility', () => {

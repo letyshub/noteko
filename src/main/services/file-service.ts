@@ -139,3 +139,25 @@ export const deleteFileFromStorage = (filePath: string): void => {
     throw error
   }
 }
+
+/**
+ * Export data as a JSON file using a save dialog.
+ * Receives a pre-serialized JSON string from the renderer,
+ * prompts the user for a save location, and writes the data.
+ *
+ * @returns The file path where data was saved, or null if cancelled.
+ */
+export const exportHistoryAsJson = async (data: string, defaultFilename: string): Promise<string | null> => {
+  const result = await dialog.showSaveDialog({
+    defaultPath: defaultFilename,
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  })
+
+  if (result.canceled || !result.filePath) {
+    return null
+  }
+
+  fs.writeFileSync(result.filePath, data, 'utf-8')
+  log.info(`Exported JSON data to: ${result.filePath}`)
+  return result.filePath
+}

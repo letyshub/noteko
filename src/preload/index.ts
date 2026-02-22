@@ -47,10 +47,18 @@ const electronAPI: ElectronAPI = {
   'db:quiz-attempts:list': (quizId) => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_ATTEMPTS_LIST, quizId),
   'db:quiz-attempts:create': (input) => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_ATTEMPTS_CREATE, input),
 
+  // Quiz History (aggregates)
+  'db:quiz-history:list-all': () => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_HISTORY_LIST_ALL),
+  'db:quiz-history:overview-stats': () => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_HISTORY_OVERVIEW_STATS),
+  'db:quiz-history:per-quiz-stats': () => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_HISTORY_PER_QUIZ_STATS),
+  'db:quiz-history:weak-areas': () => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_HISTORY_WEAK_AREAS),
+
   // Files
   'file:open-dialog': () => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_DIALOG),
   'file:upload': (input) => ipcRenderer.invoke(IPC_CHANNELS.FILE_UPLOAD, input),
   'file:validate': (filePath) => ipcRenderer.invoke(IPC_CHANNELS.FILE_VALIDATE, filePath),
+  'file:export-json': (data, defaultFilename) =>
+    ipcRenderer.invoke(IPC_CHANNELS.FILE_EXPORT_JSON, data, defaultFilename),
 
   // Document Parsing
   'doc:parse': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.DOC_PARSE, documentId),
