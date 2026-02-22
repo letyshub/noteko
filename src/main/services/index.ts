@@ -45,3 +45,6 @@ export { checkHealth, listModels, generate } from './ollama-service'
 
 // Settings operations
 export { getSetting, setSetting, getAllSettings } from './settings-service'
+
+// Chunking / map-reduce AI operations
+export { splitTextIntoChunks, runChunkedAiGeneration } from './chunking-service'

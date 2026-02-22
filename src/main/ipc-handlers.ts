@@ -19,6 +19,8 @@ import type {
   CreateQuizAttemptInput,
   FileUploadInput,
   AiStreamEvent,
+  SummaryStyle,
+  KeyTerm,
 } from '@shared/types'
 import {
   listProjects,
@@ -55,14 +57,21 @@ import {
   getSetting,
   setSetting,
   getAllSettings,
+  splitTextIntoChunks,
+  runChunkedAiGeneration,
 } from '@main/services'
 import { getMainWindow } from '@main/main-window'
 import {
-  SUMMARIZE_PROMPT,
   KEY_POINTS_PROMPT,
+  KEY_TERMS_PROMPT,
   DEFAULT_OLLAMA_MODEL,
   RAW_TEXT_MAX_LENGTH,
+  COMBINE_SUMMARIES_PROMPT,
+  COMBINE_KEY_POINTS_PROMPT,
+  COMBINE_KEY_TERMS_PROMPT,
+  getSummaryPrompt,
 } from '@main/services/ai-prompts'
+import { CHUNK_SIZE } from '@main/services/chunking-service'
 
 // ---------------------------------------------------------------------------
 // AI generation helper (fire-and-forget, streams to renderer)
@@ -82,17 +91,19 @@ function sendStreamEvent(event: AiStreamEvent): void {
  * Run AI text generation in the background, streaming chunks to the renderer.
  *
  * On completion:
- * - For 'summary': saves the accumulated text as the document summary.
+ * - For 'summary': saves the accumulated text as the document summary (and optional summary_style).
  * - For 'key_points': parses lines starting with `-` and saves as string array.
+ * - For 'key_terms': parses JSON `Array<{ term, definition }>`, with fallback to line-by-line parsing.
  *
  * On error: sends an error event via ai:stream.
  */
 async function runAiGeneration(
   documentId: number,
-  operationType: 'summary' | 'key_points',
+  operationType: 'summary' | 'key_points' | 'key_terms',
   model: string,
   prompt: string,
   baseUrl?: string,
+  summaryStyle?: SummaryStyle,
 ): Promise<void> {
   let fullText = ''
 
@@ -113,17 +124,18 @@ async function runAiGeneration(
 
     // Save results
     if (operationType === 'summary') {
-      saveDocumentContent({ document_id: documentId, summary: fullText })
-    } else {
-      // Parse key points: lines starting with "- "
-      const keyPoints = fullText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith('-'))
-        .map((line) => line.replace(/^-\s*/, ''))
-        .filter((point) => point.length > 0)
-
+      saveDocumentContent({
+        document_id: documentId,
+        summary: fullText,
+        ...(summaryStyle ? { summary_style: summaryStyle } : {}),
+      })
+    } else if (operationType === 'key_points') {
+      const keyPoints = parseKeyPoints(fullText)
       saveDocumentContent({ document_id: documentId, key_points: keyPoints })
+    } else if (operationType === 'key_terms') {
+      // Parse key terms: try JSON first, then fall back to line-by-line
+      const keyTerms = parseKeyTerms(fullText)
+      saveDocumentContent({ document_id: documentId, key_terms: keyTerms })
     }
 
     // Send done event
@@ -150,6 +162,65 @@ async function runAiGeneration(
       error: error instanceof Error ? error.message : 'Unknown error during AI generation',
     })
   }
+}
+
+/**
+ * Parse key points from LLM output.
+ * Extracts lines starting with "- " and returns as string array.
+ */
+function parseKeyPoints(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('-'))
+    .map((line) => line.replace(/^-\s*/, ''))
+    .filter((point) => point.length > 0)
+}
+
+/**
+ * Parse key terms from LLM output.
+ *
+ * Tries JSON.parse first for `Array<{ term, definition }>`.
+ * Falls back to line-by-line parsing where each line is "term: definition" or "term - definition".
+ */
+function parseKeyTerms(text: string): KeyTerm[] {
+  // Try JSON parsing first
+  try {
+    const parsed = JSON.parse(text.trim())
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item) => item && typeof item.term === 'string' && typeof item.definition === 'string')
+        .map((item) => ({ term: item.term, definition: item.definition }))
+    }
+  } catch {
+    // JSON parsing failed, fall through to line-by-line
+  }
+
+  // Fallback: line-by-line parsing ("term: definition" or "term - definition")
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      // Try "term: definition" format
+      const colonIdx = line.indexOf(':')
+      if (colonIdx > 0) {
+        return {
+          term: line.slice(0, colonIdx).trim(),
+          definition: line.slice(colonIdx + 1).trim(),
+        }
+      }
+      // Try "term - definition" format
+      const dashIdx = line.indexOf(' - ')
+      if (dashIdx > 0) {
+        return {
+          term: line.slice(0, dashIdx).trim(),
+          definition: line.slice(dashIdx + 3).trim(),
+        }
+      }
+      return null
+    })
+    .filter((item): item is KeyTerm => item !== null && item.term.length > 0 && item.definition.length > 0)
 }
 
 /**
@@ -475,7 +546,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.AI_SUMMARIZE, async (_event, documentId: number) => {
+  ipcMain.handle(IPC_CHANNELS.AI_SUMMARIZE, async (_event, documentId: number, options?: { style?: SummaryStyle }) => {
     try {
       // 1. Get document with content
       const result = getDocumentWithContent(documentId)
@@ -492,12 +563,37 @@ export function registerIpcHandlers(): void {
       const baseUrl = getSetting('ollama.url') ?? undefined
       const model = getSetting('ollama.model') ?? DEFAULT_OLLAMA_MODEL
 
-      // 3. Truncate raw text before building prompt (C-3)
-      const truncatedText = rawText.slice(0, RAW_TEXT_MAX_LENGTH)
-      const prompt = SUMMARIZE_PROMPT.replace('{text}', truncatedText)
+      // 3. Resolve style and get appropriate prompt template
+      const style: SummaryStyle = options?.style ?? 'brief'
+      const promptTemplate = getSummaryPrompt(style)
 
-      // Fire-and-forget: stream generation to renderer
-      runAiGeneration(documentId, 'summary', model, prompt, baseUrl)
+      // 4. Check text length for chunking
+      if (rawText.length > CHUNK_SIZE) {
+        // Long document: use chunked generation (map-reduce)
+        const chunks = splitTextIntoChunks(rawText)
+        runChunkedAiGeneration({
+          documentId,
+          operationType: 'summary',
+          model,
+          baseUrl,
+          chunks,
+          promptTemplate,
+          combinePromptTemplate: COMBINE_SUMMARIES_PROMPT,
+          sendStreamEvent,
+          saveResult: (finalText: string) => {
+            saveDocumentContent({
+              document_id: documentId,
+              summary: finalText,
+              summary_style: style,
+            })
+          },
+        })
+      } else {
+        // Short document: single-pass generation
+        const truncatedText = rawText.slice(0, RAW_TEXT_MAX_LENGTH)
+        const prompt = promptTemplate.replace('{text}', truncatedText)
+        runAiGeneration(documentId, 'summary', model, prompt, baseUrl, style)
+      }
 
       return createIpcSuccess(undefined as void)
     } catch (error) {
@@ -522,16 +618,82 @@ export function registerIpcHandlers(): void {
       const baseUrl = getSetting('ollama.url') ?? undefined
       const model = getSetting('ollama.model') ?? DEFAULT_OLLAMA_MODEL
 
-      // 3. Truncate raw text before building prompt (C-3)
-      const truncatedText = rawText.slice(0, RAW_TEXT_MAX_LENGTH)
-      const prompt = KEY_POINTS_PROMPT.replace('{text}', truncatedText)
-
-      // Fire-and-forget: stream generation to renderer
-      runAiGeneration(documentId, 'key_points', model, prompt, baseUrl)
+      // 3. Check text length for chunking
+      if (rawText.length > CHUNK_SIZE) {
+        // Long document: use chunked generation (map-reduce)
+        const chunks = splitTextIntoChunks(rawText)
+        runChunkedAiGeneration({
+          documentId,
+          operationType: 'key_points',
+          model,
+          baseUrl,
+          chunks,
+          promptTemplate: KEY_POINTS_PROMPT,
+          combinePromptTemplate: COMBINE_KEY_POINTS_PROMPT,
+          sendStreamEvent,
+          saveResult: (finalText: string) => {
+            const keyPoints = parseKeyPoints(finalText)
+            saveDocumentContent({ document_id: documentId, key_points: keyPoints })
+          },
+        })
+      } else {
+        // Short document: single-pass generation
+        const truncatedText = rawText.slice(0, RAW_TEXT_MAX_LENGTH)
+        const prompt = KEY_POINTS_PROMPT.replace('{text}', truncatedText)
+        runAiGeneration(documentId, 'key_points', model, prompt, baseUrl)
+      }
 
       return createIpcSuccess(undefined as void)
     } catch (error) {
       return createIpcError('AI_EXTRACT_KEY_POINTS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS, async (_event, documentId: number) => {
+    try {
+      // 1. Get document with content
+      const result = getDocumentWithContent(documentId)
+      if (!result) {
+        return createIpcError('NOT_FOUND', `Document ${documentId} not found`)
+      }
+
+      const rawText = result.content?.raw_text
+      if (!rawText) {
+        return createIpcError('NO_CONTENT', 'Document has no extracted text for key term extraction')
+      }
+
+      // 2. Get Ollama settings
+      const baseUrl = getSetting('ollama.url') ?? undefined
+      const model = getSetting('ollama.model') ?? DEFAULT_OLLAMA_MODEL
+
+      // 3. Check text length for chunking
+      if (rawText.length > CHUNK_SIZE) {
+        // Long document: use chunked generation (map-reduce)
+        const chunks = splitTextIntoChunks(rawText)
+        runChunkedAiGeneration({
+          documentId,
+          operationType: 'key_terms',
+          model,
+          baseUrl,
+          chunks,
+          promptTemplate: KEY_TERMS_PROMPT,
+          combinePromptTemplate: COMBINE_KEY_TERMS_PROMPT,
+          sendStreamEvent,
+          saveResult: (finalText: string) => {
+            const keyTerms = parseKeyTerms(finalText)
+            saveDocumentContent({ document_id: documentId, key_terms: keyTerms })
+          },
+        })
+      } else {
+        // Short document: single-pass generation
+        const truncatedText = rawText.slice(0, RAW_TEXT_MAX_LENGTH)
+        const prompt = KEY_TERMS_PROMPT.replace('{text}', truncatedText)
+        runAiGeneration(documentId, 'key_terms', model, prompt, baseUrl)
+      }
+
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('AI_EXTRACT_KEY_TERMS_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 

@@ -154,6 +154,8 @@ const completedContent: DocumentContentDto = {
   raw_text: 'This is the extracted text content from the document.',
   summary: 'A brief summary of the document.',
   key_points: ['First key point', 'Second key point', 'Third key point'],
+  key_terms: null,
+  summary_style: null,
   processed_at: '2026-01-15T10:00:00Z',
 }
 
@@ -200,6 +202,8 @@ const noTextDocument: DocumentDetailDto = {
     raw_text: null,
     summary: null,
     key_points: null,
+    key_terms: null,
+    summary_style: null,
     processed_at: '2026-01-15T10:00:00Z',
   },
 }

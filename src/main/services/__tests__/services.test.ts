@@ -67,6 +67,8 @@ const createTables = (sqlite: Database.Database): void => {
       raw_text TEXT,
       summary TEXT,
       key_points TEXT,
+      key_terms TEXT,
+      summary_style TEXT,
       processed_at TEXT
     );
 

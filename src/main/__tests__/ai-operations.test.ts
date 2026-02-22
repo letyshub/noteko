@@ -39,6 +39,8 @@ const mockGetDocumentWithContent = vi.fn()
 const mockSaveDocumentContent = vi.fn()
 const mockGetSetting = vi.fn()
 const mockGenerate = vi.fn()
+const mockSplitTextIntoChunks = vi.fn()
+const mockRunChunkedAiGeneration = vi.fn()
 
 vi.mock('@main/services', () => ({
   // Minimal stubs for all services used by registerIpcHandlers
@@ -70,6 +72,7 @@ vi.mock('@main/services', () => ({
   openFilePickerDialog: vi.fn(async () => []),
   deleteFileFromStorage: vi.fn(),
   queueDocument: vi.fn(),
+  retryDocument: vi.fn(),
   checkHealth: vi.fn(async () => ({ connected: true, models: ['llama3'] })),
   listModels: vi.fn(async () => []),
   generate: (...args: unknown[]) => mockGenerate(...args),
@@ -77,6 +80,8 @@ vi.mock('@main/services', () => ({
   getSetting: (...args: unknown[]) => mockGetSetting(...args),
   setSetting: vi.fn(),
   getAllSettings: vi.fn(() => ({})),
+  splitTextIntoChunks: (...args: unknown[]) => mockSplitTextIntoChunks(...args),
+  runChunkedAiGeneration: (...args: unknown[]) => mockRunChunkedAiGeneration(...args),
 }))
 
 // ---------------------------------------------------------------------------
@@ -335,6 +340,395 @@ describe('AI Document Operations (Group 5)', () => {
 
       // Should NOT have saved content
       expect(mockSaveDocumentContent).not.toHaveBeenCalled()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Group 3: Style-variant summarization, chunking, and key terms extraction
+// ---------------------------------------------------------------------------
+
+describe('AI Document Operations (Group 3 — Prompts & IPC Handlers)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockHandle.mockReset()
+    vi.resetModules()
+  })
+
+  // ─── Test 1: ai:summarize with style parameter ──────────────────────
+
+  describe('AI_SUMMARIZE with style parameter', () => {
+    it('should pass correct style-variant prompt to generate when style is provided', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 10, name: 'test.pdf' },
+        content: { raw_text: 'Short document text.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockGenerate.mockReturnValue(mockAsyncGenerator(['A detailed summary.']))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_SUMMARIZE)
+
+      // Act: pass style 'detailed'
+      await handler({}, 10, { style: 'detailed' })
+      await flushPromises()
+
+      // Assert: generate was called with a prompt containing the detailed instruction
+      const generateCall = mockGenerate.mock.calls[0][0] as { prompt: string }
+      expect(generateCall.prompt).toContain('detailed summary')
+      expect(generateCall.prompt).toContain('5-7 paragraphs')
+    })
+  })
+
+  // ─── Test 2: ai:summarize without style defaults to 'brief' ────────
+
+  describe('AI_SUMMARIZE default style', () => {
+    it('should default to brief style when no style option is provided', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 11, name: 'test.pdf' },
+        content: { raw_text: 'Short document text.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockGenerate.mockReturnValue(mockAsyncGenerator(['Brief summary.']))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_SUMMARIZE)
+
+      // Act: no options passed
+      await handler({}, 11)
+      await flushPromises()
+
+      // Assert: generate was called with the brief-style prompt (2-3 concise paragraphs)
+      const generateCall = mockGenerate.mock.calls[0][0] as { prompt: string }
+      expect(generateCall.prompt).toContain('2-3 concise paragraphs')
+    })
+  })
+
+  // ─── Test 3: ai:summarize with long document uses chunking ─────────
+
+  describe('AI_SUMMARIZE chunking for long documents', () => {
+    it('should use chunked generation when document exceeds CHUNK_SIZE', async () => {
+      const longText = 'x'.repeat(7000)
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 12, name: 'long.pdf' },
+        content: { raw_text: longText },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      // splitTextIntoChunks returns 2 chunks
+      mockSplitTextIntoChunks.mockReturnValue(['chunk1-text', 'chunk2-text'])
+      // runChunkedAiGeneration resolves successfully
+      mockRunChunkedAiGeneration.mockResolvedValue(undefined)
+
+      const handler = await getHandler(IPC_CHANNELS.AI_SUMMARIZE)
+
+      // Act
+      await handler({}, 12)
+      await flushPromises()
+
+      // Assert: splitTextIntoChunks was called with the long text
+      expect(mockSplitTextIntoChunks).toHaveBeenCalledWith(longText)
+
+      // Assert: runChunkedAiGeneration was called (not runAiGeneration / generate)
+      expect(mockRunChunkedAiGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: 12,
+          operationType: 'summary',
+          model: 'llama3',
+          chunks: ['chunk1-text', 'chunk2-text'],
+        }),
+      )
+
+      // Assert: direct generate was NOT called (chunked path used instead)
+      expect(mockGenerate).not.toHaveBeenCalled()
+    })
+  })
+
+  // ─── Test 4: ai:extract-key-terms parses JSON and saves ────────────
+
+  describe('AI_EXTRACT_KEY_TERMS handler', () => {
+    it('should stream chunks, parse JSON result, and save key_terms to document_content', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 13, name: 'terms.pdf' },
+        content: { raw_text: 'Document with terminology.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      const jsonResult = JSON.stringify([
+        { term: 'AI', definition: 'Artificial Intelligence' },
+        { term: 'LLM', definition: 'Large Language Model' },
+      ])
+      mockGenerate.mockReturnValue(mockAsyncGenerator([jsonResult]))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS)
+
+      // Act
+      const result = await handler({}, 13)
+      expect(result).toEqual({ success: true, data: undefined })
+
+      await flushPromises()
+
+      // Assert: key_terms were parsed from JSON and saved
+      expect(mockSaveDocumentContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          document_id: 13,
+          key_terms: [
+            { term: 'AI', definition: 'Artificial Intelligence' },
+            { term: 'LLM', definition: 'Large Language Model' },
+          ],
+        }),
+      )
+    })
+  })
+
+  // ─── Test 5: ai:extract-key-terms with invalid JSON falls back ─────
+
+  describe('AI_EXTRACT_KEY_TERMS fallback parsing', () => {
+    it('should fall back to line-by-line parsing when JSON is invalid', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 14, name: 'terms2.pdf' },
+        content: { raw_text: 'Document with terms.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      // LLM returns non-JSON text (line-by-line format)
+      const lineResult = 'AI: Artificial Intelligence\nLLM - Large Language Model\nNLP: Natural Language Processing'
+      mockGenerate.mockReturnValue(mockAsyncGenerator([lineResult]))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS)
+
+      // Act
+      await handler({}, 14)
+      await flushPromises()
+
+      // Assert: key_terms were parsed from line-by-line format
+      expect(mockSaveDocumentContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          document_id: 14,
+          key_terms: expect.arrayContaining([
+            expect.objectContaining({ term: 'AI', definition: 'Artificial Intelligence' }),
+            expect.objectContaining({ term: 'LLM', definition: 'Large Language Model' }),
+            expect.objectContaining({ term: 'NLP', definition: 'Natural Language Processing' }),
+          ]),
+        }),
+      )
+    })
+  })
+
+  // ─── Test 6: ai:summarize saves summary_style alongside summary ────
+
+  describe('AI_SUMMARIZE saves summary_style', () => {
+    it('should save summary_style alongside summary in saveDocumentContent', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 15, name: 'styled.pdf' },
+        content: { raw_text: 'Short document text.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockGenerate.mockReturnValue(mockAsyncGenerator(['An academic abstract.']))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_SUMMARIZE)
+
+      // Act: pass style 'academic'
+      await handler({}, 15, { style: 'academic' })
+      await flushPromises()
+
+      // Assert: saveDocumentContent was called with both summary and summary_style
+      expect(mockSaveDocumentContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          document_id: 15,
+          summary: 'An academic abstract.',
+          summary_style: 'academic',
+        }),
+      )
+    })
+  })
+
+  // ─── Test 7: ai:summarize with 'academic' uses correct prompt ─────
+
+  describe('AI_SUMMARIZE with academic style prompt', () => {
+    it('should use academic prompt template containing formal language instructions', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 20, name: 'paper.pdf' },
+        content: { raw_text: 'Short document text.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockGenerate.mockReturnValue(mockAsyncGenerator(['Academic output.']))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_SUMMARIZE)
+
+      // Act: pass style 'academic'
+      await handler({}, 20, { style: 'academic' })
+      await flushPromises()
+
+      // Assert: generate was called with a prompt containing the academic instruction
+      const generateCall = mockGenerate.mock.calls[0][0] as { prompt: string }
+      expect(generateCall.prompt).toContain('academic abstract')
+      expect(generateCall.prompt).toContain('formal language')
+    })
+  })
+
+  // ─── Test 8: ai:extract-key-terms with completely malformed output ─
+
+  describe('AI_EXTRACT_KEY_TERMS with malformed output', () => {
+    it('should save empty key_terms array when LLM returns completely unparseable garbage', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 21, name: 'garbage.pdf' },
+        content: { raw_text: 'Document text.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      // LLM returns garbage that is not JSON and has no "term: definition" patterns
+      const garbageOutput = 'I cannot extract terms from this document. Please try again later.'
+      mockGenerate.mockReturnValue(mockAsyncGenerator([garbageOutput]))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS)
+
+      // Act
+      await handler({}, 21)
+      await flushPromises()
+
+      // Assert: saveDocumentContent was called with key_terms as empty array
+      // (since the text has no parseable "term: definition" or JSON patterns)
+      expect(mockSaveDocumentContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          document_id: 21,
+          key_terms: expect.any(Array),
+        }),
+      )
+
+      // The resulting array should be empty (no valid term-definition pairs in the garbage)
+      const savedKeyTerms = (mockSaveDocumentContent.mock.calls[0][0] as { key_terms: unknown[] }).key_terms
+      expect(savedKeyTerms).toEqual([])
+    })
+  })
+
+  // ─── Test 9: ai:summarize backward compat (undefined options) ─────
+
+  describe('AI_SUMMARIZE backward compatibility', () => {
+    it('should work when called with only documentId and no options argument at all', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 22, name: 'old-api.pdf' },
+        content: { raw_text: 'Some text for backward compat test.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockGenerate.mockReturnValue(mockAsyncGenerator(['Brief result.']))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_SUMMARIZE)
+
+      // Act: call with NO third argument (backward compatible call)
+      await handler({}, 22, undefined)
+      await flushPromises()
+
+      // Assert: should succeed and default to brief style
+      expect(mockGenerate).toHaveBeenCalled()
+      const generateCall = mockGenerate.mock.calls[0][0] as { prompt: string }
+      expect(generateCall.prompt).toContain('2-3 concise paragraphs')
+
+      // Assert: summary should be saved
+      expect(mockSaveDocumentContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          document_id: 22,
+          summary: 'Brief result.',
+        }),
+      )
+    })
+  })
+
+  // ─── Test 10: ai:extract-key-terms with chunked long document ─────
+
+  describe('AI_EXTRACT_KEY_TERMS chunking for long documents', () => {
+    it('should use chunked generation with correct key terms prompts when document exceeds CHUNK_SIZE', async () => {
+      const longText = 'y'.repeat(7000)
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 23, name: 'long-terms.pdf' },
+        content: { raw_text: longText },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockSplitTextIntoChunks.mockReturnValue(['chunk-a', 'chunk-b'])
+      mockRunChunkedAiGeneration.mockResolvedValue(undefined)
+
+      const handler = await getHandler(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS)
+
+      // Act
+      await handler({}, 23)
+      await flushPromises()
+
+      // Assert: splitTextIntoChunks was called with the long text
+      expect(mockSplitTextIntoChunks).toHaveBeenCalledWith(longText)
+
+      // Assert: runChunkedAiGeneration was called with key_terms operation type
+      expect(mockRunChunkedAiGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: 23,
+          operationType: 'key_terms',
+          chunks: ['chunk-a', 'chunk-b'],
+        }),
+      )
+
+      // Assert: direct generate was NOT called
+      expect(mockGenerate).not.toHaveBeenCalled()
     })
   })
 })

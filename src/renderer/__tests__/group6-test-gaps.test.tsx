@@ -190,6 +190,8 @@ const completedContent: DocumentContentDto = {
   raw_text: 'This is the extracted text content.',
   summary: 'A brief summary.',
   key_points: ['Point one', 'Point two'],
+  key_terms: null,
+  summary_style: null,
   processed_at: '2026-01-15T10:00:00Z',
 }
 

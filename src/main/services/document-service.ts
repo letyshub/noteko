@@ -75,6 +75,8 @@ export const saveDocumentContent = (data: {
   raw_text?: string
   summary?: string
   key_points?: string[]
+  key_terms?: Array<{ term: string; definition: string }>
+  summary_style?: string
 }) => {
   return getDb()
     .insert(documentContent)
@@ -89,6 +91,10 @@ export const saveDocumentContent = (data: {
         summary: data.summary !== undefined ? sql`${data.summary}` : sql`${documentContent.summary}`,
         key_points:
           data.key_points !== undefined ? sql`${JSON.stringify(data.key_points)}` : sql`${documentContent.key_points}`,
+        key_terms:
+          data.key_terms !== undefined ? sql`${JSON.stringify(data.key_terms)}` : sql`${documentContent.key_terms}`,
+        summary_style:
+          data.summary_style !== undefined ? sql`${data.summary_style}` : sql`${documentContent.summary_style}`,
         processed_at: new Date().toISOString(),
       },
     })

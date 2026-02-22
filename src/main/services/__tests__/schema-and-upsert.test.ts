@@ -73,6 +73,8 @@ const createTables = (sqlite: Database.Database): void => {
       raw_text TEXT,
       summary TEXT,
       key_points TEXT,
+      key_terms TEXT,
+      summary_style TEXT,
       processed_at TEXT
     );
 
@@ -328,7 +330,117 @@ describe('schema changes and upsert', () => {
     })
   })
 
-  // ─── Test 6: stale processing status reset ───────────────────────────────
+  // ─── Test 6: document_content accepts key_terms JSON column ──────────────
+
+  describe('document_content key_terms column', () => {
+    it('should accept key_terms JSON data and read it back as structured data', () => {
+      const { document } = createDocumentPrerequisites(db)
+
+      const keyTerms = [
+        { term: 'Photosynthesis', definition: 'Process by which plants convert light to energy' },
+        { term: 'Chlorophyll', definition: 'Green pigment in plants that absorbs light' },
+      ]
+
+      db.insert(schema.documentContent)
+        .values({
+          document_id: document.id,
+          raw_text: 'Some biology text',
+          key_terms: keyTerms,
+          processed_at: new Date().toISOString(),
+        })
+        .run()
+
+      const row = db
+        .select()
+        .from(schema.documentContent)
+        .where(eq(schema.documentContent.document_id, document.id))
+        .get()
+
+      expect(row).toBeDefined()
+      expect(row!.key_terms).toEqual(keyTerms)
+      expect(row!.key_terms![0].term).toBe('Photosynthesis')
+      expect(row!.key_terms![1].definition).toBe('Green pigment in plants that absorbs light')
+    })
+  })
+
+  // ─── Test 7: document_content accepts summary_style text column ─────────
+
+  describe('document_content summary_style column', () => {
+    it('should accept summary_style text and read it back', () => {
+      const { document } = createDocumentPrerequisites(db)
+
+      db.insert(schema.documentContent)
+        .values({
+          document_id: document.id,
+          raw_text: 'Some text',
+          summary_style: 'academic',
+          processed_at: new Date().toISOString(),
+        })
+        .run()
+
+      const row = db
+        .select()
+        .from(schema.documentContent)
+        .where(eq(schema.documentContent.document_id, document.id))
+        .get()
+
+      expect(row).toBeDefined()
+      expect(row!.summary_style).toBe('academic')
+    })
+  })
+
+  // ─── Test 8: saveDocumentContent() handles key_terms field ──────────────
+
+  describe('saveDocumentContent() key_terms upsert', () => {
+    it('should persist key_terms via upsert and preserve other fields', async () => {
+      const { saveDocumentContent } = await import('@main/services/document-service')
+      const { document } = createDocumentPrerequisites(db)
+
+      // First call: insert with raw_text
+      saveDocumentContent({
+        document_id: document.id,
+        raw_text: 'Original text',
+      })
+
+      // Second call: add key_terms without overwriting raw_text
+      const keyTerms = [
+        { term: 'Neural Network', definition: 'A computing system inspired by biological neural networks' },
+      ]
+      const result = saveDocumentContent({
+        document_id: document.id,
+        key_terms: keyTerms,
+      })
+
+      expect(result.raw_text).toBe('Original text')
+      expect(result.key_terms).toEqual(keyTerms)
+    })
+  })
+
+  // ─── Test 9: saveDocumentContent() handles summary_style field ──────────
+
+  describe('saveDocumentContent() summary_style upsert', () => {
+    it('should persist summary_style via upsert and preserve other fields', async () => {
+      const { saveDocumentContent } = await import('@main/services/document-service')
+      const { document } = createDocumentPrerequisites(db)
+
+      // First call: insert with summary
+      saveDocumentContent({
+        document_id: document.id,
+        summary: 'A brief overview',
+      })
+
+      // Second call: add summary_style without overwriting summary
+      const result = saveDocumentContent({
+        document_id: document.id,
+        summary_style: 'detailed',
+      })
+
+      expect(result.summary).toBe('A brief overview')
+      expect(result.summary_style).toBe('detailed')
+    })
+  })
+
+  // ─── Test 10: stale processing status reset ──────────────────────────────
 
   describe('stale processing status reset', () => {
     it('should reset documents with processing status back to pending', () => {

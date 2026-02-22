@@ -6,7 +6,7 @@ import { useUIStore } from '@renderer/store/ui-store'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { DocumentViewer } from '@renderer/components/documents/document-viewer'
-import type { AiStreamEvent } from '@shared/types'
+import type { AiStreamEvent, SummaryStyle } from '@shared/types'
 import type { WrappedListener } from '@shared/ipc'
 
 export function DocumentPage() {
@@ -28,14 +28,22 @@ export function DocumentPage() {
   // AI availability state
   const [aiAvailable, setAiAvailable] = useState(false)
 
-  // Streaming state (local, per-page)
-  const [isSummarizing, setIsSummarizing] = useState(false)
-  const [isExtractingKeyPoints, setIsExtractingKeyPoints] = useState(false)
+  // Unified AI processing state (replaces individual isSummarizing/isExtractingKeyPoints)
+  const [isAiProcessing, setIsAiProcessing] = useState(false)
   const [streamingText, setStreamingText] = useState('')
-  const [streamingType, setStreamingType] = useState<'summary' | 'key_points' | null>(null)
+  const [streamingType, setStreamingType] = useState<'summary' | 'key_points' | 'key_terms' | null>(null)
+
+  // Summary style selection
+  const [summaryStyle, setSummaryStyle] = useState<SummaryStyle>('brief')
+
+  // Chunk progress tracking
+  const [chunkProgress, setChunkProgress] = useState<{ current: number; total: number } | null>(null)
 
   // Ref for the wrapped listener so we can clean up properly
   const wrappedListenerRef = useRef<WrappedListener | null>(null)
+
+  // Track last chunk index to reset streaming text when chunk changes
+  const lastChunkIndexRef = useRef<number>(-1)
 
   // Set page title to document name
   useEffect(() => {
@@ -72,22 +80,32 @@ export function DocumentPage() {
       if (event.documentId !== Number(id)) return
 
       if (event.error) {
-        // Error: reset streaming state
-        setIsSummarizing(false)
-        setIsExtractingKeyPoints(false)
+        // Error: reset all streaming state
+        setIsAiProcessing(false)
         setStreamingText('')
         setStreamingType(null)
+        setChunkProgress(null)
         return
       }
 
       if (event.done) {
         // Done: refetch document to get persisted data, reset streaming state
-        setIsSummarizing(false)
-        setIsExtractingKeyPoints(false)
+        setIsAiProcessing(false)
         setStreamingText('')
         setStreamingType(null)
+        setChunkProgress(null)
         refetch()
         return
+      }
+
+      // Update chunk progress if available
+      if (event.totalChunks != null && event.chunkIndex != null) {
+        // Reset streaming text when entering a new chunk or the combine phase
+        if (event.chunkIndex !== lastChunkIndexRef.current) {
+          lastChunkIndexRef.current = event.chunkIndex
+          setStreamingText('')
+        }
+        setChunkProgress({ current: event.chunkIndex, total: event.totalChunks })
       }
 
       // Accumulate streaming text
@@ -117,22 +135,44 @@ export function DocumentPage() {
     refetch()
   }
 
-  // AI action handlers (W-8: guard against concurrent operations)
+  // AI action handlers (guard against concurrent operations)
   const handleSummarize = async () => {
-    if (!document || isSummarizing || isExtractingKeyPoints) return
-    setIsSummarizing(true)
+    if (!document || isAiProcessing) return
+    setIsAiProcessing(true)
     setStreamingText('')
     setStreamingType('summary')
-    await mutate(() => window.electronAPI['ai:summarize'](document.id))
+    setChunkProgress(null)
+    lastChunkIndexRef.current = -1
+    await mutate(() => window.electronAPI['ai:summarize'](document.id, { style: summaryStyle }))
   }
 
   const handleExtractKeyPoints = async () => {
-    if (!document || isSummarizing || isExtractingKeyPoints) return
-    setIsExtractingKeyPoints(true)
+    if (!document || isAiProcessing) return
+    setIsAiProcessing(true)
     setStreamingText('')
     setStreamingType('key_points')
+    setChunkProgress(null)
+    lastChunkIndexRef.current = -1
     await mutate(() => window.electronAPI['ai:extract-key-points'](document.id))
   }
+
+  const handleExtractKeyTerms = async () => {
+    if (!document || isAiProcessing) return
+    setIsAiProcessing(true)
+    setStreamingText('')
+    setStreamingType('key_terms')
+    setChunkProgress(null)
+    lastChunkIndexRef.current = -1
+    await mutate(() => window.electronAPI['ai:extract-key-terms'](document.id))
+  }
+
+  const handleSummaryStyleChange = (style: SummaryStyle) => {
+    setSummaryStyle(style)
+  }
+
+  // Derived values from document content
+  const keyTerms = document?.content?.key_terms ?? null
+  const summaryStyleUsed = document?.content?.summary_style ?? null
 
   // Loading state
   if (loading) {
@@ -222,9 +262,14 @@ export function DocumentPage() {
       onRetry={handleRetry}
       onSummarize={handleSummarize}
       onExtractKeyPoints={handleExtractKeyPoints}
+      onExtractKeyTerms={handleExtractKeyTerms}
+      onSummaryStyleChange={handleSummaryStyleChange}
       aiAvailable={aiAvailable}
-      isSummarizing={isSummarizing}
-      isExtractingKeyPoints={isExtractingKeyPoints}
+      isAiProcessing={isAiProcessing}
+      keyTerms={keyTerms}
+      summaryStyle={summaryStyle}
+      summaryStyleUsed={summaryStyleUsed}
+      chunkProgress={chunkProgress}
       streamingText={streamingText}
       streamingType={streamingType}
     />

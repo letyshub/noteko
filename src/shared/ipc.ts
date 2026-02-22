@@ -32,6 +32,7 @@ import type {
   AiStreamEvent,
   OllamaModel,
   OllamaHealthResult,
+  SummaryStyle,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -87,6 +88,7 @@ export const IPC_CHANNELS = {
   AI_LIST_MODELS: 'ai:list-models',
   AI_SUMMARIZE: 'ai:summarize',
   AI_EXTRACT_KEY_POINTS: 'ai:extract-key-points',
+  AI_EXTRACT_KEY_TERMS: 'ai:extract-key-terms',
 
   // Settings
   SETTINGS_GET: 'settings:get',
@@ -227,8 +229,9 @@ export interface IpcChannelMap {
   // AI / Ollama
   'ai:health-check': { args: []; response: IpcResult<OllamaHealthResult> }
   'ai:list-models': { args: []; response: IpcResult<OllamaModel[]> }
-  'ai:summarize': { args: [documentId: number]; response: IpcResult<void> }
+  'ai:summarize': { args: [documentId: number, options?: { style?: SummaryStyle }]; response: IpcResult<void> }
   'ai:extract-key-points': { args: [documentId: number]; response: IpcResult<void> }
+  'ai:extract-key-terms': { args: [documentId: number]; response: IpcResult<void> }
 
   // Settings
   'settings:get': { args: [key: string]; response: IpcResult<string | null> }

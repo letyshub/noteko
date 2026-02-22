@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { IPC_CHANNELS, createIpcSuccess, createIpcError } from '../ipc'
-import type { IpcResult } from '../ipc'
+import type { IpcResult, IpcChannelMap } from '../ipc'
+import type { DocumentContentDto, AiStreamEvent } from '../types'
 
 describe('IPC_CHANNELS', () => {
   it('should have the expected number of channel entries', () => {
     const channelKeys = Object.keys(IPC_CHANNELS)
-    // ping + 5 projects + 4 folders + 6 documents + 4 quizzes + 2 quiz-attempts + 3 files + 2 parsing + 4 ai + 3 settings + 1 progress = 35
-    expect(channelKeys).toHaveLength(35)
+    // ping + 5 projects + 4 folders + 6 documents + 4 quizzes + 2 quiz-attempts + 3 files + 2 parsing + 5 ai + 3 settings + 1 progress = 36
+    expect(channelKeys).toHaveLength(36)
   })
 
   it('should include the ping channel for backward compatibility', () => {
@@ -120,5 +121,87 @@ describe('IpcResult helpers', () => {
       expect(errorResult.error.code).toBe('ERR')
       expect(errorResult.error.message).toBe('fail')
     }
+  })
+})
+
+describe('Frontend type contracts for document summarization/extraction', () => {
+  it('DocumentContentDto type should include key_terms and summary_style fields', () => {
+    // TypeScript compilation test: if these fields are missing, this test file won't compile
+    const content: DocumentContentDto = {
+      id: 1,
+      document_id: 1,
+      raw_text: 'Some text',
+      summary: 'A summary',
+      key_points: ['point 1'],
+      key_terms: [{ term: 'React', definition: 'A JavaScript library' }],
+      summary_style: 'brief',
+      processed_at: '2026-01-01T00:00:00Z',
+    }
+
+    expect(content.key_terms).toBeDefined()
+    expect(content.key_terms![0].term).toBe('React')
+    expect(content.key_terms![0].definition).toBe('A JavaScript library')
+    expect(content.summary_style).toBe('brief')
+  })
+
+  it('AiStreamEvent with operationType key_terms should compile with chunk progress fields', () => {
+    // TypeScript compilation test: operationType 'key_terms' and chunk progress fields
+    const event: AiStreamEvent = {
+      documentId: 1,
+      operationType: 'key_terms',
+      chunk: '{"term": "React"}',
+      done: false,
+      chunkIndex: 2,
+      totalChunks: 5,
+    }
+
+    expect(event.operationType).toBe('key_terms')
+    expect(event.chunkIndex).toBe(2)
+    expect(event.totalChunks).toBe(5)
+  })
+
+  it('IpcChannelMap ai:summarize should accept optional style parameter in args', () => {
+    // TypeScript compilation test: verify the args signature accepts optional style
+    type SummarizeArgs = IpcChannelMap['ai:summarize']['args']
+
+    // The second arg should be optional with a style property
+    const argsWithStyle: SummarizeArgs = [42, { style: 'academic' }]
+    const argsWithoutOptions: SummarizeArgs = [42]
+
+    expect(argsWithStyle[0]).toBe(42)
+    expect(argsWithStyle[1]?.style).toBe('academic')
+    expect(argsWithoutOptions).toHaveLength(1)
+  })
+
+  it('IpcChannelMap ai:extract-key-terms should exist with correct args signature', () => {
+    // TypeScript compilation test: verify the channel exists and accepts documentId
+    type ExtractKeyTermsArgs = IpcChannelMap['ai:extract-key-terms']['args']
+
+    const args: ExtractKeyTermsArgs = [42]
+    expect(args[0]).toBe(42)
+
+    // Also verify the channel constant exists
+    expect(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS).toBe('ai:extract-key-terms')
+  })
+
+  it('DocumentContentDto with null key_terms and summary_style should be valid', () => {
+    // Verify the type accepts null for the new optional fields
+    const content: DocumentContentDto = {
+      id: 1,
+      document_id: 1,
+      raw_text: 'Some text',
+      summary: null,
+      key_points: null,
+      key_terms: null,
+      summary_style: null,
+      processed_at: null,
+    }
+
+    // All nullable fields should be null
+    expect(content.key_terms).toBeNull()
+    expect(content.summary_style).toBeNull()
+    expect(content.summary).toBeNull()
+    expect(content.key_points).toBeNull()
+    expect(content.processed_at).toBeNull()
   })
 })

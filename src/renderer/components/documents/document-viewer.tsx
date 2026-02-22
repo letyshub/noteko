@@ -7,18 +7,23 @@ import { DocumentMetadata } from '@renderer/components/documents/document-metada
 import { DocumentPreview } from '@renderer/components/documents/document-preview'
 import { AiActionsPanel } from '@renderer/components/ai/ai-actions-panel'
 import { isPreviewable } from '@renderer/components/documents/document-utils'
-import type { DocumentDetailDto } from '@shared/types'
+import type { DocumentDetailDto, KeyTerm, SummaryStyle } from '@shared/types'
 
 interface DocumentViewerProps {
   document: DocumentDetailDto
   onRetry: () => void
   onSummarize: () => void
   onExtractKeyPoints: () => void
+  onExtractKeyTerms: () => void
+  onSummaryStyleChange: (style: SummaryStyle) => void
   aiAvailable: boolean
-  isSummarizing?: boolean
-  isExtractingKeyPoints?: boolean
+  isAiProcessing: boolean
+  keyTerms: KeyTerm[] | null
+  summaryStyle: SummaryStyle
+  summaryStyleUsed: SummaryStyle | null
+  chunkProgress: { current: number; total: number } | null
   streamingText?: string
-  streamingType?: 'summary' | 'key_points' | null
+  streamingType?: 'summary' | 'key_points' | 'key_terms' | null
 }
 
 export function DocumentViewer({
@@ -26,9 +31,14 @@ export function DocumentViewer({
   onRetry,
   onSummarize,
   onExtractKeyPoints,
+  onExtractKeyTerms,
+  onSummaryStyleChange,
   aiAvailable,
-  isSummarizing = false,
-  isExtractingKeyPoints = false,
+  isAiProcessing,
+  keyTerms,
+  summaryStyle,
+  summaryStyleUsed,
+  chunkProgress,
   streamingText,
   streamingType,
 }: DocumentViewerProps) {
@@ -38,6 +48,26 @@ export function DocumentViewer({
   const isFailed = document.processing_status === 'failed'
   const isNotProcessed = !content || (!content.raw_text && document.processing_status !== 'completed')
   const canPreview = isPreviewable(document.file_type)
+
+  const aiPanel = (
+    <AiActionsPanel
+      hasRawText={hasRawText}
+      aiAvailable={aiAvailable}
+      summary={content?.summary ?? null}
+      keyPoints={content?.key_points ?? null}
+      keyTerms={keyTerms}
+      summaryStyle={summaryStyle}
+      summaryStyleUsed={summaryStyleUsed}
+      onSummarize={onSummarize}
+      onExtractKeyPoints={onExtractKeyPoints}
+      onExtractKeyTerms={onExtractKeyTerms}
+      onSummaryStyleChange={onSummaryStyleChange}
+      isAiProcessing={isAiProcessing}
+      chunkProgress={chunkProgress}
+      streamingText={streamingText}
+      streamingType={streamingType}
+    />
+  )
 
   return (
     <div className="flex flex-1 flex-col">
@@ -95,18 +125,7 @@ export function DocumentViewer({
                 )}
 
                 {/* AI Actions Panel */}
-                <AiActionsPanel
-                  hasRawText={hasRawText}
-                  aiAvailable={aiAvailable}
-                  summary={content?.summary ?? null}
-                  keyPoints={content?.key_points ?? null}
-                  onSummarize={onSummarize}
-                  onExtractKeyPoints={onExtractKeyPoints}
-                  isSummarizing={isSummarizing}
-                  isExtractingKeyPoints={isExtractingKeyPoints}
-                  streamingText={streamingText}
-                  streamingType={streamingType}
-                />
+                {aiPanel}
 
                 {/* Extracted text panel */}
                 <div className="flex flex-1 flex-col">
@@ -154,18 +173,7 @@ export function DocumentViewer({
           )}
 
           {/* AI Actions Panel */}
-          <AiActionsPanel
-            hasRawText={hasRawText}
-            aiAvailable={aiAvailable}
-            summary={content?.summary ?? null}
-            keyPoints={content?.key_points ?? null}
-            onSummarize={onSummarize}
-            onExtractKeyPoints={onExtractKeyPoints}
-            isSummarizing={isSummarizing}
-            isExtractingKeyPoints={isExtractingKeyPoints}
-            streamingText={streamingText}
-            streamingType={streamingType}
-          />
+          {aiPanel}
 
           {/* Extracted text panel */}
           <div className="flex flex-1 flex-col">

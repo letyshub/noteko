@@ -183,6 +183,8 @@ const pdfContent: DocumentContentDto = {
   raw_text: 'Extracted PDF text for integration testing.',
   summary: 'A summary.',
   key_points: ['Point A', 'Point B'],
+  key_terms: null,
+  summary_style: null,
   processed_at: '2026-01-15T10:00:00Z',
 }
 

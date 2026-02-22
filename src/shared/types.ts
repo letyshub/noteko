@@ -92,6 +92,8 @@ export interface DocumentContentDto {
   raw_text: string | null
   summary: string | null
   key_points: string[] | null
+  key_terms: KeyTerm[] | null
+  summary_style: SummaryStyle | null
   processed_at: string | null
 }
 
@@ -172,13 +174,24 @@ export interface CreateQuizAttemptInput {
 // AI / Ollama
 // ---------------------------------------------------------------------------
 
+/** Style used when generating a document summary. */
+export type SummaryStyle = 'brief' | 'detailed' | 'academic'
+
+/** A single extracted key term with its definition. */
+export interface KeyTerm {
+  term: string
+  definition: string
+}
+
 /** Event payload streamed from main to renderer during AI operations. */
 export interface AiStreamEvent {
   documentId: number
-  operationType: 'summary' | 'key_points'
+  operationType: 'summary' | 'key_points' | 'key_terms'
   chunk: string
   done: boolean
   error?: string
+  chunkIndex?: number
+  totalChunks?: number
 }
 
 /** Model information returned by Ollama's /api/tags endpoint. */

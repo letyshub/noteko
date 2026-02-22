@@ -59,8 +59,9 @@ const electronAPI: ElectronAPI = {
   // AI / Ollama
   'ai:health-check': () => ipcRenderer.invoke(IPC_CHANNELS.AI_HEALTH_CHECK),
   'ai:list-models': () => ipcRenderer.invoke(IPC_CHANNELS.AI_LIST_MODELS),
-  'ai:summarize': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_SUMMARIZE, documentId),
+  'ai:summarize': (documentId, options) => ipcRenderer.invoke(IPC_CHANNELS.AI_SUMMARIZE, documentId, options),
   'ai:extract-key-points': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT_KEY_POINTS, documentId),
+  'ai:extract-key-terms': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS, documentId),
 
   // Settings
   'settings:get': (key) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET, key),
