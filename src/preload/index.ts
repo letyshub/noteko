@@ -47,6 +47,12 @@ const electronAPI: ElectronAPI = {
   'db:quiz-attempts:list': (quizId) => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_ATTEMPTS_LIST, quizId),
   'db:quiz-attempts:create': (input) => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_ATTEMPTS_CREATE, input),
 
+  // Dashboard
+  'db:dashboard:stats': () => ipcRenderer.invoke(IPC_CHANNELS.DASHBOARD_STATS),
+  'db:dashboard:recent-docs': () => ipcRenderer.invoke(IPC_CHANNELS.DASHBOARD_RECENT_DOCS),
+  'db:dashboard:recent-attempts': () => ipcRenderer.invoke(IPC_CHANNELS.DASHBOARD_RECENT_ATTEMPTS),
+  'db:dashboard:projects-with-counts': () => ipcRenderer.invoke(IPC_CHANNELS.DASHBOARD_PROJECTS_WITH_COUNTS),
+
   // Quiz History (aggregates)
   'db:quiz-history:list-all': () => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_HISTORY_LIST_ALL),
   'db:quiz-history:overview-stats': () => ipcRenderer.invoke(IPC_CHANNELS.QUIZ_HISTORY_OVERVIEW_STATS),

@@ -50,6 +50,10 @@ import {
   getOverviewStats,
   getPerQuizStats,
   getWeakAreas,
+  getDashboardStats,
+  getRecentDocuments,
+  getRecentQuizAttempts,
+  getProjectsWithCounts,
   validateFile,
   copyFileToStorage,
   openFilePickerDialog,
@@ -645,6 +649,43 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess(result)
     } catch (error) {
       return createIpcError('QUIZ_HISTORY_WEAK_AREAS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Dashboard ────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.DASHBOARD_STATS, async () => {
+    try {
+      const result = getDashboardStats()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DASHBOARD_STATS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DASHBOARD_RECENT_DOCS, async () => {
+    try {
+      const result = getRecentDocuments()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DASHBOARD_RECENT_DOCS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DASHBOARD_RECENT_ATTEMPTS, async () => {
+    try {
+      const result = getRecentQuizAttempts()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DASHBOARD_RECENT_ATTEMPTS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DASHBOARD_PROJECTS_WITH_COUNTS, async () => {
+    try {
+      const result = getProjectsWithCounts()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DASHBOARD_PROJECTS_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 

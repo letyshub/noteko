@@ -38,6 +38,14 @@ export {
   getWeakAreas,
 } from './quiz-service'
 
+// Dashboard operations
+export {
+  getDashboardStats,
+  getRecentDocuments,
+  getRecentQuizAttempts,
+  getProjectsWithCounts,
+} from './dashboard-service'
+
 // File operations
 export {
   validateFile,

@@ -33,6 +33,10 @@ import type {
   QuizOverviewStatsDto,
   QuizPerQuizStatsDto,
   WeakAreaDto,
+  DashboardStatsDto,
+  RecentDocumentDto,
+  RecentQuizAttemptDto,
+  ProjectWithCountDto,
   AiStreamEvent,
   OllamaModel,
   OllamaHealthResult,
@@ -78,6 +82,12 @@ export const IPC_CHANNELS = {
   // Quiz Attempts
   QUIZ_ATTEMPTS_LIST: 'db:quiz-attempts:list',
   QUIZ_ATTEMPTS_CREATE: 'db:quiz-attempts:create',
+
+  // Dashboard
+  DASHBOARD_STATS: 'db:dashboard:stats',
+  DASHBOARD_RECENT_DOCS: 'db:dashboard:recent-docs',
+  DASHBOARD_RECENT_ATTEMPTS: 'db:dashboard:recent-attempts',
+  DASHBOARD_PROJECTS_WITH_COUNTS: 'db:dashboard:projects-with-counts',
 
   // Quiz History (aggregates)
   QUIZ_HISTORY_LIST_ALL: 'db:quiz-history:list-all',
@@ -223,6 +233,12 @@ export interface IpcChannelMap {
     args: [input: CreateQuizAttemptInput]
     response: IpcResult<QuizAttemptDto>
   }
+
+  // Dashboard
+  'db:dashboard:stats': { args: []; response: IpcResult<DashboardStatsDto> }
+  'db:dashboard:recent-docs': { args: []; response: IpcResult<RecentDocumentDto[]> }
+  'db:dashboard:recent-attempts': { args: []; response: IpcResult<RecentQuizAttemptDto[]> }
+  'db:dashboard:projects-with-counts': { args: []; response: IpcResult<ProjectWithCountDto[]> }
 
   // Quiz History (aggregates)
   'db:quiz-history:list-all': { args: []; response: IpcResult<QuizAttemptWithContextDto[]> }

@@ -257,6 +257,45 @@ export interface OllamaHealthResult {
 }
 
 // ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
+/** Aggregate stats for the dashboard overview cards. */
+export interface DashboardStatsDto {
+  total_projects: number
+  total_documents: number
+  total_quizzes_taken: number
+  average_score: number
+}
+
+/** Recent document for the dashboard activity feed. */
+export interface RecentDocumentDto {
+  id: number
+  name: string
+  file_type: string
+  project_name: string
+  created_at: string
+}
+
+/** Recent quiz attempt for the dashboard activity feed. */
+export interface RecentQuizAttemptDto {
+  id: number
+  quiz_id: number
+  quiz_title: string
+  document_name: string
+  score: number
+  completed_at: string
+}
+
+/** Project with document count for the dashboard project grid. */
+export interface ProjectWithCountDto {
+  id: number
+  name: string
+  color: string | null
+  document_count: number
+}
+
+// ---------------------------------------------------------------------------
 // File Upload
 // ---------------------------------------------------------------------------
 
