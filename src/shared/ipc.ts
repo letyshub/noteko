@@ -33,6 +33,7 @@ import type {
   OllamaModel,
   OllamaHealthResult,
   SummaryStyle,
+  QuizGenerationOptions,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -89,6 +90,7 @@ export const IPC_CHANNELS = {
   AI_SUMMARIZE: 'ai:summarize',
   AI_EXTRACT_KEY_POINTS: 'ai:extract-key-points',
   AI_EXTRACT_KEY_TERMS: 'ai:extract-key-terms',
+  AI_GENERATE_QUIZ: 'ai:generate-quiz',
 
   // Settings
   SETTINGS_GET: 'settings:get',
@@ -232,6 +234,7 @@ export interface IpcChannelMap {
   'ai:summarize': { args: [documentId: number, options?: { style?: SummaryStyle }]; response: IpcResult<void> }
   'ai:extract-key-points': { args: [documentId: number]; response: IpcResult<void> }
   'ai:extract-key-terms': { args: [documentId: number]; response: IpcResult<void> }
+  'ai:generate-quiz': { args: [documentId: number, options: QuizGenerationOptions]; response: IpcResult<void> }
 
   // Settings
   'settings:get': { args: [key: string]; response: IpcResult<string | null> }

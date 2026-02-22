@@ -41,6 +41,10 @@ const mockGetSetting = vi.fn()
 const mockGenerate = vi.fn()
 const mockSplitTextIntoChunks = vi.fn()
 const mockRunChunkedAiGeneration = vi.fn()
+const mockParseQuizQuestions = vi.fn()
+const mockValidateQuizQuestion = vi.fn()
+const mockBuildQuizPrompt = vi.fn()
+const mockCreateQuiz = vi.fn()
 
 vi.mock('@main/services', () => ({
   // Minimal stubs for all services used by registerIpcHandlers
@@ -63,7 +67,7 @@ vi.mock('@main/services', () => ({
   deleteDocument: vi.fn(),
   listQuizzesByDocument: vi.fn(() => []),
   getQuizWithQuestions: vi.fn(),
-  createQuiz: vi.fn((d: unknown) => ({ id: 1, ...(d as object) })),
+  createQuiz: (...args: unknown[]) => mockCreateQuiz(...args),
   deleteQuiz: vi.fn(),
   listAttempts: vi.fn(() => []),
   recordAttempt: vi.fn((d: unknown) => ({ id: 1, ...(d as object) })),
@@ -82,6 +86,12 @@ vi.mock('@main/services', () => ({
   getAllSettings: vi.fn(() => ({})),
   splitTextIntoChunks: (...args: unknown[]) => mockSplitTextIntoChunks(...args),
   runChunkedAiGeneration: (...args: unknown[]) => mockRunChunkedAiGeneration(...args),
+  parseQuizQuestions: (...args: unknown[]) => mockParseQuizQuestions(...args),
+  validateQuizQuestion: (...args: unknown[]) => mockValidateQuizQuestion(...args),
+  buildQuizPrompt: (...args: unknown[]) => mockBuildQuizPrompt(...args),
+  QUIZ_GENERATION_PROMPT: 'mock-quiz-prompt {questionCount} {questionTypes} {difficulty} {text}',
+  COMBINE_QUIZ_QUESTIONS_PROMPT: 'mock-combine-quiz-prompt {questionCount} {text}',
+  QUIZ_RETRY_PROMPT: 'mock-retry-prompt {error} {questionCount} {questionTypes} {difficulty} {text}',
 }))
 
 // ---------------------------------------------------------------------------
@@ -729,6 +739,398 @@ describe('AI Document Operations (Group 3 — Prompts & IPC Handlers)', () => {
 
       // Assert: direct generate was NOT called
       expect(mockGenerate).not.toHaveBeenCalled()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Group 3 (Quiz): Quiz generation IPC handler
+// ---------------------------------------------------------------------------
+
+describe('AI Quiz Generation IPC Handler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockHandle.mockReset()
+    vi.resetModules()
+  })
+
+  // ─── Test 1: Fire-and-forget returns success immediately ────────────
+
+  describe('AI_GENERATE_QUIZ fire-and-forget', () => {
+    it('should return { success: true, data: undefined } immediately', async () => {
+      // Arrange: document with raw_text
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 100, name: 'quiz-doc.pdf' },
+        content: { raw_text: 'Short document text for quiz.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockBuildQuizPrompt.mockReturnValue('A quiz prompt with text')
+      mockGenerate.mockReturnValue(mockAsyncGenerator(['[{"question":"Q1"}]']))
+      mockParseQuizQuestions.mockReturnValue([{ question: 'Q1' }])
+      mockValidateQuizQuestion.mockReturnValue({
+        question: 'Q1',
+        type: 'multiple-choice',
+        options: ['A', 'B', 'C', 'D'],
+        correct_answer: 'A',
+        explanation: 'Because A.',
+        difficulty: 'easy',
+      })
+      mockCreateQuiz.mockReturnValue({ id: 42 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_GENERATE_QUIZ)
+
+      // Act
+      const options = { questionCount: 5, questionTypes: 'multiple-choice', difficulty: 'easy' }
+      const result = await handler({}, 100, options)
+
+      // Assert: returns success immediately (fire-and-forget)
+      expect(result).toEqual({ success: true, data: undefined })
+    })
+  })
+
+  // ─── Test 2: Error when document has no raw_text ────────────────────
+
+  describe('AI_GENERATE_QUIZ missing raw_text', () => {
+    it('should return error when document has no raw_text', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 101, name: 'empty.pdf' },
+        content: { raw_text: null },
+      })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_GENERATE_QUIZ)
+
+      const options = { questionCount: 5, questionTypes: 'multiple-choice', difficulty: 'easy' }
+      const result = (await handler({}, 101, options)) as { success: boolean; error?: { code: string } }
+
+      expect(result.success).toBe(false)
+      expect(result.error?.code).toBe('NO_CONTENT')
+    })
+  })
+
+  // ─── Test 3: Short doc calls generate() with quiz prompt ────────────
+
+  describe('AI_GENERATE_QUIZ short document', () => {
+    it('should call generate() with a prompt built by buildQuizPrompt for short documents', async () => {
+      const shortText = 'Short document text for quiz generation.'
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 102, name: 'short.pdf' },
+        content: { raw_text: shortText },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      const builtPrompt = 'Generate 5 quiz questions from: Short document text...'
+      mockBuildQuizPrompt.mockReturnValue(builtPrompt)
+
+      const validQuestion = {
+        question: 'What is discussed?',
+        type: 'multiple-choice',
+        options: ['A', 'B', 'C', 'D'],
+        correct_answer: 'A',
+        explanation: 'Explained.',
+        difficulty: 'easy',
+      }
+      const parsedQuestions = [{ question: 'What is discussed?' }]
+      mockGenerate.mockReturnValue(mockAsyncGenerator([JSON.stringify(parsedQuestions)]))
+      mockParseQuizQuestions.mockReturnValue(parsedQuestions)
+      mockValidateQuizQuestion.mockReturnValue(validQuestion)
+      mockCreateQuiz.mockReturnValue({ id: 55 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_GENERATE_QUIZ)
+
+      const options = { questionCount: 5, questionTypes: 'multiple-choice', difficulty: 'easy' }
+      await handler({}, 102, options)
+      await flushPromises()
+
+      // Assert: buildQuizPrompt was called with the document text and options
+      expect(mockBuildQuizPrompt).toHaveBeenCalledWith(shortText, options)
+
+      // Assert: generate was called with the prompt from buildQuizPrompt
+      expect(mockGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: 'llama3',
+          prompt: builtPrompt,
+          baseUrl: 'http://localhost:11434',
+        }),
+      )
+    })
+  })
+
+  // ─── Test 4: Long doc calls splitTextIntoChunks + runChunkedAiGeneration ──
+
+  describe('AI_GENERATE_QUIZ long document', () => {
+    it('should call splitTextIntoChunks() and runChunkedAiGeneration() for long documents', async () => {
+      const longText = 'z'.repeat(7000) // exceeds CHUNK_SIZE (6000)
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 103, name: 'long-quiz.pdf' },
+        content: { raw_text: longText },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockSplitTextIntoChunks.mockReturnValue(['chunk-x', 'chunk-y'])
+      mockRunChunkedAiGeneration.mockResolvedValue(undefined)
+
+      const handler = await getHandler(IPC_CHANNELS.AI_GENERATE_QUIZ)
+
+      const options = { questionCount: 10, questionTypes: 'multiple-choice,true-false', difficulty: 'medium' }
+      await handler({}, 103, options)
+      await flushPromises()
+
+      // Assert: splitTextIntoChunks was called with the long text
+      expect(mockSplitTextIntoChunks).toHaveBeenCalledWith(longText)
+
+      // Assert: runChunkedAiGeneration was called with quiz operation type
+      expect(mockRunChunkedAiGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: 103,
+          operationType: 'quiz',
+          model: 'llama3',
+          chunks: ['chunk-x', 'chunk-y'],
+        }),
+      )
+
+      // Assert: direct generate was NOT called (chunked path used)
+      expect(mockGenerate).not.toHaveBeenCalled()
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Group 6: Test gap analysis — strategic additional tests
+// ---------------------------------------------------------------------------
+
+describe('Quiz Generation — Retry Logic & Edge Cases', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockHandle.mockReset()
+    vi.resetModules()
+  })
+
+  // ─── Test 1: Retry on malformed JSON succeeds on second attempt ─────
+
+  describe('AI_GENERATE_QUIZ retry on malformed JSON', () => {
+    it('should retry with QUIZ_RETRY_PROMPT when first attempt returns unparseable JSON, then succeed', async () => {
+      const shortText = 'Document text for retry test.'
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 200, name: 'retry-doc.pdf' },
+        content: { raw_text: shortText },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      const builtPrompt = 'Quiz prompt text'
+      mockBuildQuizPrompt.mockReturnValue(builtPrompt)
+
+      // First call: returns garbage (triggers retry)
+      // Second call: returns valid JSON
+      let callCount = 0
+      mockGenerate.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) {
+          return mockAsyncGenerator(['This is not valid JSON at all'])
+        }
+        return mockAsyncGenerator([
+          JSON.stringify([
+            {
+              question: 'What is photosynthesis?',
+              type: 'multiple-choice',
+              options: ['A', 'B', 'C', 'D'],
+              correct_answer: 'A',
+              explanation: 'Explained.',
+              difficulty: 'easy',
+            },
+          ]),
+        ])
+      })
+
+      // First attempt: parseQuizQuestions returns null (malformed)
+      // Second attempt: parseQuizQuestions returns valid questions
+      let parseCallCount = 0
+      mockParseQuizQuestions.mockImplementation(() => {
+        parseCallCount++
+        if (parseCallCount === 1) return null
+        return [{ question: 'What is photosynthesis?' }]
+      })
+
+      mockValidateQuizQuestion.mockReturnValue({
+        question: 'What is photosynthesis?',
+        type: 'multiple-choice',
+        options: ['A', 'B', 'C', 'D'],
+        correct_answer: 'A',
+        explanation: 'Explained.',
+        difficulty: 'easy',
+      })
+      mockCreateQuiz.mockReturnValue({ id: 77 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_GENERATE_QUIZ)
+
+      const options = { questionCount: 5, questionTypes: 'multiple-choice', difficulty: 'easy' }
+      await handler({}, 200, options)
+      await flushPromises()
+
+      // Assert: generate was called twice (initial + 1 retry)
+      expect(mockGenerate).toHaveBeenCalledTimes(2)
+
+      // Assert: quiz was created (retry succeeded)
+      expect(mockCreateQuiz).toHaveBeenCalled()
+
+      // Assert: done event with quizId was sent
+      const streamCalls = mockSend.mock.calls.filter((c: unknown[]) => c[0] === 'ai:stream')
+      const doneEvent = streamCalls.find((c: unknown[]) => {
+        const evt = c[1] as { done: boolean; quizId?: number }
+        return evt.done === true && evt.quizId === 77
+      })
+      expect(doneEvent).toBeDefined()
+    })
+  })
+
+  // ─── Test 2: Retry exhaustion — error event after 2 failed retries ──
+
+  describe('AI_GENERATE_QUIZ retry exhaustion', () => {
+    it('should send error event after all retries are exhausted (no quiz saved)', async () => {
+      const shortText = 'Document text for exhaustion test.'
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 201, name: 'exhaust-doc.pdf' },
+        content: { raw_text: shortText },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      const builtPrompt = 'Quiz prompt text'
+      mockBuildQuizPrompt.mockReturnValue(builtPrompt)
+
+      // All attempts return garbage
+      mockGenerate.mockImplementation(() => {
+        return mockAsyncGenerator(['This is garbage, not JSON'])
+      })
+
+      // parseQuizQuestions always returns null
+      mockParseQuizQuestions.mockReturnValue(null)
+
+      const handler = await getHandler(IPC_CHANNELS.AI_GENERATE_QUIZ)
+
+      const options = { questionCount: 5, questionTypes: 'multiple-choice', difficulty: 'easy' }
+      await handler({}, 201, options)
+      await flushPromises()
+
+      // Assert: generate was called 3 times (initial + 2 retries)
+      expect(mockGenerate).toHaveBeenCalledTimes(3)
+
+      // Assert: createQuiz was NOT called (all retries failed)
+      expect(mockCreateQuiz).not.toHaveBeenCalled()
+
+      // Assert: an error event was sent via ai:stream
+      const streamCalls = mockSend.mock.calls.filter((c: unknown[]) => c[0] === 'ai:stream')
+      const errorEvent = streamCalls.find((c: unknown[]) => {
+        const evt = c[1] as { done: boolean; error?: string }
+        return evt.done === true && evt.error !== undefined
+      })
+      expect(errorEvent).toBeDefined()
+      expect((errorEvent![1] as { error: string }).error).toContain('failed after retries')
+    })
+  })
+
+  // ─── Test 3: Chunked quiz combine prompt includes COMBINE_QUIZ_QUESTIONS_PROMPT ──
+
+  describe('AI_GENERATE_QUIZ chunked quiz combine prompt', () => {
+    it('should pass combinePromptTemplate derived from COMBINE_QUIZ_QUESTIONS_PROMPT to runChunkedAiGeneration', async () => {
+      const longText = 'w'.repeat(7000)
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 202, name: 'chunked-combine.pdf' },
+        content: { raw_text: longText },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockSplitTextIntoChunks.mockReturnValue(['chunk-a', 'chunk-b', 'chunk-c'])
+      mockRunChunkedAiGeneration.mockResolvedValue(undefined)
+
+      const handler = await getHandler(IPC_CHANNELS.AI_GENERATE_QUIZ)
+
+      const options = { questionCount: 8, questionTypes: 'all', difficulty: 'hard' }
+      await handler({}, 202, options)
+      await flushPromises()
+
+      // Assert: runChunkedAiGeneration was called with a combinePromptTemplate
+      // that contains the question count (from COMBINE_QUIZ_QUESTIONS_PROMPT with {questionCount} replaced)
+      expect(mockRunChunkedAiGeneration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: 202,
+          operationType: 'quiz',
+          combinePromptTemplate: expect.stringContaining('8'),
+        }),
+      )
+    })
+  })
+
+  // ─── Test 4: AI_SUMMARIZE backward compat after quiz operationType extension ──
+
+  describe('AI_SUMMARIZE backward compatibility after operationType union extension', () => {
+    it('should still work correctly for summarize after quiz operationType was added to union', async () => {
+      mockGetDocumentWithContent.mockReturnValue({
+        document: { id: 300, name: 'compat-test.pdf' },
+        content: { raw_text: 'Text for backward compat test.' },
+      })
+
+      mockGetSetting.mockImplementation((key: string) => {
+        if (key === 'ollama.url') return 'http://localhost:11434'
+        if (key === 'ollama.model') return 'llama3'
+        return null
+      })
+
+      mockGenerate.mockReturnValue(mockAsyncGenerator(['Summary text.']))
+      mockSaveDocumentContent.mockReturnValue({ id: 1 })
+
+      const handler = await getHandler(IPC_CHANNELS.AI_SUMMARIZE)
+
+      // Act: call summarize (not quiz)
+      await handler({}, 300)
+      await flushPromises()
+
+      // Assert: generate was called (not quiz path)
+      expect(mockGenerate).toHaveBeenCalled()
+
+      // Assert: stream events use 'summary' operationType (not 'quiz')
+      const streamCalls = mockSend.mock.calls.filter((c: unknown[]) => c[0] === 'ai:stream')
+      expect(streamCalls.length).toBeGreaterThanOrEqual(1)
+
+      const firstChunk = streamCalls[0][1] as { operationType: string }
+      expect(firstChunk.operationType).toBe('summary')
+
+      // Assert: summary was saved (not quiz)
+      expect(mockSaveDocumentContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          document_id: 300,
+          summary: 'Summary text.',
+        }),
+      )
     })
   })
 })

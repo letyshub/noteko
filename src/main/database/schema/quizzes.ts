@@ -10,4 +10,7 @@ export const quizzes = sqliteTable('quizzes', {
   created_at: text('created_at')
     .notNull()
     .$default(() => new Date().toISOString()),
+  question_count: integer('question_count'),
+  difficulty_level: text('difficulty_level'),
+  question_types: text('question_types'),
 })

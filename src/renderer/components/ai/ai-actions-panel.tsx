@@ -1,4 +1,5 @@
-import { Sparkles, List, Tag, Loader2, RotateCcw } from 'lucide-react'
+import { Sparkles, List, Tag, GraduationCap, Loader2, RotateCcw } from 'lucide-react'
+import { Link } from 'react-router'
 import { Button } from '@renderer/components/ui/button'
 import { Badge } from '@renderer/components/ui/badge'
 import { Progress } from '@renderer/components/ui/progress'
@@ -15,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@renderer/components/ui/alert-dialog'
-import type { KeyTerm, SummaryStyle } from '@shared/types'
+import type { KeyTerm, SummaryStyle, QuizDto } from '@shared/types'
 
 interface AiActionsPanelProps {
   hasRawText: boolean
@@ -32,7 +33,16 @@ interface AiActionsPanelProps {
   isAiProcessing: boolean
   chunkProgress: { current: number; total: number } | null
   streamingText?: string
-  streamingType?: 'summary' | 'key_points' | 'key_terms' | null
+  streamingType?: 'summary' | 'key_points' | 'key_terms' | 'quiz' | null
+  // Quiz props
+  onGenerateQuiz: () => void
+  quizTypes: string
+  quizDifficulty: string
+  quizSize: number
+  onQuizTypesChange: (value: string) => void
+  onQuizDifficultyChange: (value: string) => void
+  onQuizSizeChange: (value: string) => void
+  quizzes: QuizDto[]
 }
 
 const STYLE_LABELS: Record<SummaryStyle, string> = {
@@ -57,6 +67,14 @@ export function AiActionsPanel({
   chunkProgress,
   streamingText,
   streamingType,
+  onGenerateQuiz,
+  quizTypes,
+  quizDifficulty,
+  quizSize,
+  onQuizTypesChange,
+  onQuizDifficultyChange,
+  onQuizSizeChange,
+  quizzes = [],
 }: AiActionsPanelProps) {
   const canAct = aiAvailable && hasRawText && !isAiProcessing
 
@@ -223,6 +241,83 @@ export function AiActionsPanel({
                 </div>
               ))}
             </dl>
+          </div>
+        )}
+      </div>
+
+      {/* ---- Quiz subsection ---- */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-muted-foreground">Quiz</h4>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={quizTypes} onValueChange={onQuizTypesChange} disabled={isAiProcessing}>
+            <SelectTrigger size="sm" className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="multiple-choice">MCQ Only</SelectItem>
+              <SelectItem value="true-false">True/False Only</SelectItem>
+              <SelectItem value="short-answer">Short Answer Only</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={quizDifficulty} onValueChange={onQuizDifficultyChange} disabled={isAiProcessing}>
+            <SelectTrigger size="sm" className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="easy">Easy</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="hard">Hard</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={String(quizSize)} onValueChange={onQuizSizeChange} disabled={isAiProcessing}>
+            <SelectTrigger size="sm" className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5 Questions</SelectItem>
+              <SelectItem value="10">10 Questions</SelectItem>
+              <SelectItem value="15">15 Questions</SelectItem>
+              <SelectItem value="20">20 Questions</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button variant="outline" size="sm" onClick={onGenerateQuiz} disabled={!canAct} aria-label="Generate Quiz">
+          {isAiProcessing && streamingType === 'quiz' ? (
+            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : (
+            <GraduationCap className="mr-1 h-4 w-4" />
+          )}
+          Generate Quiz
+        </Button>
+
+        {/* Streaming area for quiz */}
+        {streamingText && streamingType === 'quiz' && (
+          <div className="rounded-md border bg-muted/50 p-3">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">Generating quiz...</p>
+            <p className="whitespace-pre-wrap text-sm">{streamingText}</p>
+          </div>
+        )}
+
+        {/* Previously generated quizzes */}
+        {quizzes.length > 0 && streamingType !== 'quiz' && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Previously Generated</p>
+            <ul className="space-y-1">
+              {quizzes.map((quiz) => (
+                <li key={quiz.id}>
+                  <Link
+                    to={`/quizzes/${quiz.id}`}
+                    className="flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-muted/50"
+                  >
+                    <span className="truncate">{quiz.title}</span>
+                    <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                      {new Date(quiz.created_at).toLocaleDateString()}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

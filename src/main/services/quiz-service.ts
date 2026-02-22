@@ -23,39 +23,52 @@ export const getQuizWithQuestions = (id: number): { quiz: Quiz; questions: QuizQ
 export const createQuiz = (data: {
   title: string
   document_id: number
+  question_count?: number
+  difficulty_level?: string
+  question_types?: string
   questions: Array<{
     question: string
     options?: string[]
     correct_answer: string
     explanation?: string
+    type?: string
+    difficulty?: string
   }>
 }) => {
   const db = getDb()
-  const quiz = db
-    .insert(quizzes)
-    .values({
-      title: data.title,
-      document_id: data.document_id,
-      created_at: new Date().toISOString(),
-    })
-    .returning()
-    .get()
 
-  if (quiz && data.questions.length > 0) {
-    for (const q of data.questions) {
-      db.insert(quizQuestions)
-        .values({
-          quiz_id: quiz.id,
-          question: q.question,
-          options: q.options,
-          correct_answer: q.correct_answer,
-          explanation: q.explanation,
-        })
-        .run()
+  return db.transaction((tx) => {
+    const quiz = tx
+      .insert(quizzes)
+      .values({
+        title: data.title,
+        document_id: data.document_id,
+        created_at: new Date().toISOString(),
+        question_count: data.question_count,
+        difficulty_level: data.difficulty_level,
+        question_types: data.question_types,
+      })
+      .returning()
+      .get()
+
+    if (quiz && data.questions.length > 0) {
+      for (const q of data.questions) {
+        tx.insert(quizQuestions)
+          .values({
+            quiz_id: quiz.id,
+            question: q.question,
+            options: q.options,
+            correct_answer: q.correct_answer,
+            explanation: q.explanation,
+            type: q.type,
+            difficulty: q.difficulty,
+          })
+          .run()
+      }
     }
-  }
 
-  return quiz
+    return quiz
+  })
 }
 
 export const deleteQuiz = (id: number) => {

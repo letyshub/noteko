@@ -7,7 +7,7 @@ import { DocumentMetadata } from '@renderer/components/documents/document-metada
 import { DocumentPreview } from '@renderer/components/documents/document-preview'
 import { AiActionsPanel } from '@renderer/components/ai/ai-actions-panel'
 import { isPreviewable } from '@renderer/components/documents/document-utils'
-import type { DocumentDetailDto, KeyTerm, SummaryStyle } from '@shared/types'
+import type { DocumentDetailDto, KeyTerm, SummaryStyle, QuizDto } from '@shared/types'
 
 interface DocumentViewerProps {
   document: DocumentDetailDto
@@ -16,6 +16,7 @@ interface DocumentViewerProps {
   onExtractKeyPoints: () => void
   onExtractKeyTerms: () => void
   onSummaryStyleChange: (style: SummaryStyle) => void
+  onGenerateQuiz: () => void
   aiAvailable: boolean
   isAiProcessing: boolean
   keyTerms: KeyTerm[] | null
@@ -23,7 +24,15 @@ interface DocumentViewerProps {
   summaryStyleUsed: SummaryStyle | null
   chunkProgress: { current: number; total: number } | null
   streamingText?: string
-  streamingType?: 'summary' | 'key_points' | 'key_terms' | null
+  streamingType?: 'summary' | 'key_points' | 'key_terms' | 'quiz' | null
+  // Quiz config props
+  quizTypes: string
+  quizDifficulty: string
+  quizSize: number
+  onQuizTypesChange: (value: string) => void
+  onQuizDifficultyChange: (value: string) => void
+  onQuizSizeChange: (value: string) => void
+  quizzes: QuizDto[]
 }
 
 export function DocumentViewer({
@@ -33,6 +42,7 @@ export function DocumentViewer({
   onExtractKeyPoints,
   onExtractKeyTerms,
   onSummaryStyleChange,
+  onGenerateQuiz,
   aiAvailable,
   isAiProcessing,
   keyTerms,
@@ -41,6 +51,13 @@ export function DocumentViewer({
   chunkProgress,
   streamingText,
   streamingType,
+  quizTypes,
+  quizDifficulty,
+  quizSize,
+  onQuizTypesChange,
+  onQuizDifficultyChange,
+  onQuizSizeChange,
+  quizzes,
 }: DocumentViewerProps) {
   const navigate = useNavigate()
   const content = document.content
@@ -66,6 +83,14 @@ export function DocumentViewer({
       chunkProgress={chunkProgress}
       streamingText={streamingText}
       streamingType={streamingType}
+      onGenerateQuiz={onGenerateQuiz}
+      quizTypes={quizTypes}
+      quizDifficulty={quizDifficulty}
+      quizSize={quizSize}
+      onQuizTypesChange={onQuizTypesChange}
+      onQuizDifficultyChange={onQuizDifficultyChange}
+      onQuizSizeChange={onQuizSizeChange}
+      quizzes={quizzes}
     />
   )
 

@@ -10,4 +10,6 @@ export const quizQuestions = sqliteTable('quiz_questions', {
   options: text('options', { mode: 'json' }).$type<string[]>(),
   correct_answer: text('correct_answer').notNull(),
   explanation: text('explanation'),
+  type: text('type'),
+  difficulty: text('difficulty'),
 })

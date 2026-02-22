@@ -62,6 +62,7 @@ const electronAPI: ElectronAPI = {
   'ai:summarize': (documentId, options) => ipcRenderer.invoke(IPC_CHANNELS.AI_SUMMARIZE, documentId, options),
   'ai:extract-key-points': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT_KEY_POINTS, documentId),
   'ai:extract-key-terms': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS, documentId),
+  'ai:generate-quiz': (documentId, options) => ipcRenderer.invoke(IPC_CHANNELS.AI_GENERATE_QUIZ, documentId, options),
 
   // Settings
   'settings:get': (key) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET, key),

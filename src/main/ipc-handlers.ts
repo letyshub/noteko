@@ -21,6 +21,7 @@ import type {
   AiStreamEvent,
   SummaryStyle,
   KeyTerm,
+  QuizGenerationOptions,
 } from '@shared/types'
 import {
   listProjects,
@@ -59,6 +60,9 @@ import {
   getAllSettings,
   splitTextIntoChunks,
   runChunkedAiGeneration,
+  parseQuizQuestions,
+  validateQuizQuestion,
+  buildQuizPrompt,
 } from '@main/services'
 import { getMainWindow } from '@main/main-window'
 import {
@@ -69,6 +73,9 @@ import {
   COMBINE_SUMMARIES_PROMPT,
   COMBINE_KEY_POINTS_PROMPT,
   COMBINE_KEY_TERMS_PROMPT,
+  QUIZ_GENERATION_PROMPT,
+  COMBINE_QUIZ_QUESTIONS_PROMPT,
+  QUIZ_RETRY_PROMPT,
   getSummaryPrompt,
 } from '@main/services/ai-prompts'
 import { CHUNK_SIZE } from '@main/services/chunking-service'
@@ -221,6 +228,148 @@ function parseKeyTerms(text: string): KeyTerm[] {
       return null
     })
     .filter((item): item is KeyTerm => item !== null && item.term.length > 0 && item.definition.length > 0)
+}
+
+// ---------------------------------------------------------------------------
+// Quiz generation helper (fire-and-forget, streams to renderer)
+// ---------------------------------------------------------------------------
+
+/**
+ * Run AI quiz generation in the background, streaming chunks to the renderer.
+ *
+ * On completion:
+ * - Parses the LLM output as JSON quiz questions via parseQuizQuestions()
+ * - Validates each question via validateQuizQuestion()
+ * - Retries up to 2 times on malformed output using QUIZ_RETRY_PROMPT
+ * - On success: saves quiz via createQuiz(), sends done event with quizId
+ *
+ * On error: sends an error event via ai:stream.
+ */
+async function runQuizGeneration(
+  documentId: number,
+  documentName: string,
+  model: string,
+  prompt: string,
+  options: QuizGenerationOptions,
+  rawText: string,
+  baseUrl?: string,
+): Promise<void> {
+  const maxRetries = 2
+  let lastError = ''
+
+  try {
+    log.info(`[ai] Starting quiz generation for document ${documentId}`)
+
+    let currentPrompt = prompt
+    let fullText = ''
+    let validQuestions: ReturnType<typeof validateQuizQuestion>[] = []
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      fullText = ''
+
+      const generator = generate({ model, prompt: currentPrompt, baseUrl })
+
+      for await (const chunk of generator) {
+        fullText += chunk
+        sendStreamEvent({
+          documentId,
+          operationType: 'quiz',
+          chunk,
+          done: false,
+        })
+      }
+
+      // Parse and validate
+      const parsed = parseQuizQuestions(fullText)
+      if (!parsed) {
+        lastError = 'Failed to parse JSON array from LLM output'
+        log.warn(`[ai] Quiz generation attempt ${attempt + 1}: ${lastError}`)
+
+        if (attempt < maxRetries) {
+          currentPrompt = QUIZ_RETRY_PROMPT.replace('{error}', lastError)
+            .replace('{questionCount}', String(options.questionCount))
+            .replace('{questionTypes}', options.questionTypes)
+            .replace('{difficulty}', options.difficulty)
+            .replace('{text}', rawText.slice(0, RAW_TEXT_MAX_LENGTH))
+          continue
+        }
+        break
+      }
+
+      // Validate each question
+      validQuestions = parsed.map((q) => validateQuizQuestion(q)).filter((q) => q !== null)
+
+      if (validQuestions.length === 0) {
+        lastError = 'All parsed questions failed validation'
+        log.warn(`[ai] Quiz generation attempt ${attempt + 1}: ${lastError}`)
+
+        if (attempt < maxRetries) {
+          currentPrompt = QUIZ_RETRY_PROMPT.replace('{error}', lastError)
+            .replace('{questionCount}', String(options.questionCount))
+            .replace('{questionTypes}', options.questionTypes)
+            .replace('{difficulty}', options.difficulty)
+            .replace('{text}', rawText.slice(0, RAW_TEXT_MAX_LENGTH))
+          continue
+        }
+        break
+      }
+
+      // Success: we have valid questions
+      log.info(`[ai] Quiz generation: ${validQuestions.length} valid questions after attempt ${attempt + 1}`)
+
+      const quizTitle = `Quiz: ${documentName} - ${options.difficulty} (${validQuestions.length}Q)`
+      const quiz = createQuiz({
+        document_id: documentId,
+        title: quizTitle,
+        question_count: validQuestions.length,
+        difficulty_level: options.difficulty,
+        question_types: options.questionTypes,
+        questions: validQuestions.map((q) => ({
+          question: q!.question,
+          options: q!.options ?? undefined,
+          correct_answer: q!.correct_answer,
+          explanation: q!.explanation ?? undefined,
+          type: q!.type,
+          difficulty: q!.difficulty,
+        })),
+      })
+
+      // Send done event with quizId
+      sendStreamEvent({
+        documentId,
+        operationType: 'quiz',
+        chunk: '',
+        done: true,
+        quizId: quiz.id,
+      })
+
+      log.info(`[ai] Completed quiz generation for document ${documentId}, quiz ${quiz.id}`)
+      return
+    }
+
+    // All retries exhausted
+    log.error(`[ai] Quiz generation failed after ${maxRetries + 1} attempts for document ${documentId}: ${lastError}`)
+    sendStreamEvent({
+      documentId,
+      operationType: 'quiz',
+      chunk: '',
+      done: true,
+      error: `Quiz generation failed after retries: ${lastError}`,
+    })
+  } catch (error) {
+    log.error(
+      `[ai] Error during quiz generation for document ${documentId}:`,
+      error instanceof Error ? error.message : error,
+    )
+
+    sendStreamEvent({
+      documentId,
+      operationType: 'quiz',
+      chunk: '',
+      done: true,
+      error: error instanceof Error ? error.message : 'Unknown error during quiz generation',
+    })
+  }
 }
 
 /**
@@ -694,6 +843,93 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess(undefined as void)
     } catch (error) {
       return createIpcError('AI_EXTRACT_KEY_TERMS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AI_GENERATE_QUIZ, async (_event, documentId: number, options: QuizGenerationOptions) => {
+    try {
+      // 1. Get document with content
+      const result = getDocumentWithContent(documentId)
+      if (!result) {
+        return createIpcError('NOT_FOUND', `Document ${documentId} not found`)
+      }
+
+      const rawText = result.content?.raw_text
+      if (!rawText) {
+        return createIpcError('NO_CONTENT', 'Document has no extracted text for quiz generation')
+      }
+
+      // 2. Get Ollama settings
+      const baseUrl = getSetting('ollama.url') ?? undefined
+      const model = getSetting('ollama.model') ?? DEFAULT_OLLAMA_MODEL
+
+      // 3. Check text length for chunking
+      if (rawText.length > CHUNK_SIZE) {
+        // Long document: use chunked generation (map-reduce)
+        const chunks = splitTextIntoChunks(rawText)
+
+        // Build quiz prompt template with placeholders replaced except {text}
+        const quizPromptTemplate = QUIZ_GENERATION_PROMPT.replace('{questionCount}', String(options.questionCount))
+          .replace('{questionTypes}', options.questionTypes)
+          .replace('{difficulty}', options.difficulty)
+
+        const combinePrompt = COMBINE_QUIZ_QUESTIONS_PROMPT.replace('{questionCount}', String(options.questionCount))
+
+        runChunkedAiGeneration({
+          documentId,
+          operationType: 'quiz',
+          model,
+          baseUrl,
+          chunks,
+          promptTemplate: quizPromptTemplate,
+          combinePromptTemplate: combinePrompt,
+          sendStreamEvent,
+          saveResult: (finalText: string) => {
+            // Parse and validate quiz questions from combined result
+            const parsed = parseQuizQuestions(finalText)
+            if (parsed) {
+              const valid = parsed.map((q) => validateQuizQuestion(q)).filter((q) => q !== null)
+
+              if (valid.length > 0) {
+                const quizTitle = `Quiz: ${result.document.name} - ${options.difficulty} (${valid.length}Q)`
+                const quiz = createQuiz({
+                  document_id: documentId,
+                  title: quizTitle,
+                  question_count: valid.length,
+                  difficulty_level: options.difficulty,
+                  question_types: options.questionTypes,
+                  questions: valid.map((q) => ({
+                    question: q!.question,
+                    options: q!.options ?? undefined,
+                    correct_answer: q!.correct_answer,
+                    explanation: q!.explanation ?? undefined,
+                    type: q!.type,
+                    difficulty: q!.difficulty,
+                  })),
+                })
+                log.info(`[ai] Chunked quiz generation saved quiz ${quiz.id} for document ${documentId}`)
+
+                // Send done event with quizId for toast navigation
+                sendStreamEvent({
+                  documentId,
+                  operationType: 'quiz',
+                  chunk: '',
+                  done: true,
+                  quizId: quiz.id,
+                })
+              }
+            }
+          },
+        })
+      } else {
+        // Short document: single-pass generation with quiz-specific helper
+        const prompt = buildQuizPrompt(rawText, options)
+        runQuizGeneration(documentId, result.document.name, model, prompt, options, rawText, baseUrl)
+      }
+
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('AI_GENERATE_QUIZ_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 

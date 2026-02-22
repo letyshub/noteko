@@ -78,7 +78,10 @@ const createTables = (sqlite: Database.Database): void => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       document_id INTEGER NOT NULL REFERENCES documents(id),
       title TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      question_count INTEGER,
+      difficulty_level TEXT,
+      question_types TEXT
     );
 
     CREATE TABLE IF NOT EXISTS quiz_questions (
@@ -87,7 +90,9 @@ const createTables = (sqlite: Database.Database): void => {
       question TEXT NOT NULL,
       options TEXT,
       correct_answer TEXT NOT NULL,
-      explanation TEXT
+      explanation TEXT,
+      type TEXT,
+      difficulty TEXT
     );
 
     CREATE TABLE IF NOT EXISTS quiz_attempts (

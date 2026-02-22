@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { ArrowLeft, AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { useIpc, useIpcMutation } from '@renderer/hooks/use-ipc'
 import { useUIStore } from '@renderer/store/ui-store'
 import { Button } from '@renderer/components/ui/button'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { DocumentViewer } from '@renderer/components/documents/document-viewer'
-import type { AiStreamEvent, SummaryStyle } from '@shared/types'
+import type { AiStreamEvent, SummaryStyle, QuizDto } from '@shared/types'
 import type { WrappedListener } from '@shared/ipc'
 
 export function DocumentPage() {
@@ -31,10 +32,18 @@ export function DocumentPage() {
   // Unified AI processing state (replaces individual isSummarizing/isExtractingKeyPoints)
   const [isAiProcessing, setIsAiProcessing] = useState(false)
   const [streamingText, setStreamingText] = useState('')
-  const [streamingType, setStreamingType] = useState<'summary' | 'key_points' | 'key_terms' | null>(null)
+  const [streamingType, setStreamingType] = useState<'summary' | 'key_points' | 'key_terms' | 'quiz' | null>(null)
 
   // Summary style selection
   const [summaryStyle, setSummaryStyle] = useState<SummaryStyle>('brief')
+
+  // Quiz configuration state
+  const [quizTypes, setQuizTypes] = useState('all')
+  const [quizDifficulty, setQuizDifficulty] = useState('medium')
+  const [quizSize, setQuizSize] = useState(10)
+
+  // Quiz list state
+  const [quizzes, setQuizzes] = useState<QuizDto[]>([])
 
   // Chunk progress tracking
   const [chunkProgress, setChunkProgress] = useState<{ current: number; total: number } | null>(null)
@@ -73,6 +82,36 @@ export function DocumentPage() {
     }
   }, [])
 
+  // Fetch quiz list for this document
+  const fetchQuizzes = useCallback(async () => {
+    try {
+      const result = await window.electronAPI['db:quizzes:list'](Number(id))
+      if (result.success) {
+        setQuizzes(result.data)
+      }
+    } catch {
+      // Silently fail -- quiz list is not critical
+    }
+  }, [id])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadQuizzes() {
+      try {
+        const result = await window.electronAPI['db:quizzes:list'](Number(id))
+        if (!cancelled && result.success) {
+          setQuizzes(result.data)
+        }
+      } catch {
+        // Silently fail -- quiz list is not critical
+      }
+    }
+    loadQuizzes()
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
   // Handle incoming AI stream events
   const handleStreamEvent = useCallback(
     (event: AiStreamEvent) => {
@@ -95,6 +134,20 @@ export function DocumentPage() {
         setStreamingType(null)
         setChunkProgress(null)
         refetch()
+
+        // Quiz-specific: refetch quiz list and show toast
+        if (event.operationType === 'quiz') {
+          fetchQuizzes()
+          const quizId = event.quizId
+          toast.success('Quiz generated!', {
+            action: quizId
+              ? {
+                  label: 'View Quiz',
+                  onClick: () => navigate(`/quizzes/${quizId}`),
+                }
+              : undefined,
+          })
+        }
         return
       }
 
@@ -112,7 +165,7 @@ export function DocumentPage() {
       setStreamingText((prev) => prev + event.chunk)
       setStreamingType(event.operationType)
     },
-    [id, refetch],
+    [id, refetch, fetchQuizzes, navigate],
   )
 
   // Subscribe to ai:stream events
@@ -164,6 +217,22 @@ export function DocumentPage() {
     setChunkProgress(null)
     lastChunkIndexRef.current = -1
     await mutate(() => window.electronAPI['ai:extract-key-terms'](document.id))
+  }
+
+  const handleGenerateQuiz = async () => {
+    if (!document || isAiProcessing) return
+    setIsAiProcessing(true)
+    setStreamingText('')
+    setStreamingType('quiz')
+    setChunkProgress(null)
+    lastChunkIndexRef.current = -1
+    await mutate(() =>
+      window.electronAPI['ai:generate-quiz'](document.id, {
+        questionCount: quizSize,
+        questionTypes: quizTypes,
+        difficulty: quizDifficulty,
+      }),
+    )
   }
 
   const handleSummaryStyleChange = (style: SummaryStyle) => {
@@ -264,6 +333,7 @@ export function DocumentPage() {
       onExtractKeyPoints={handleExtractKeyPoints}
       onExtractKeyTerms={handleExtractKeyTerms}
       onSummaryStyleChange={handleSummaryStyleChange}
+      onGenerateQuiz={handleGenerateQuiz}
       aiAvailable={aiAvailable}
       isAiProcessing={isAiProcessing}
       keyTerms={keyTerms}
@@ -272,6 +342,13 @@ export function DocumentPage() {
       chunkProgress={chunkProgress}
       streamingText={streamingText}
       streamingType={streamingType}
+      quizTypes={quizTypes}
+      quizDifficulty={quizDifficulty}
+      quizSize={quizSize}
+      onQuizTypesChange={setQuizTypes}
+      onQuizDifficultyChange={setQuizDifficulty}
+      onQuizSizeChange={(size: string) => setQuizSize(Number(size))}
+      quizzes={quizzes}
     />
   )
 }

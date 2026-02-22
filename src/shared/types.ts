@@ -121,6 +121,9 @@ export interface QuizDto {
   document_id: number
   title: string
   created_at: string
+  question_count?: number
+  difficulty_level?: string
+  question_types?: string
 }
 
 /** Includes questions for single-quiz views. */
@@ -135,6 +138,8 @@ export interface QuizQuestionDto {
   options: string[] | null
   correct_answer: string
   explanation: string | null
+  type?: 'multiple-choice' | 'true-false' | 'short-answer'
+  difficulty?: 'easy' | 'medium' | 'hard'
 }
 
 export interface CreateQuizInput {
@@ -148,6 +153,8 @@ export interface CreateQuizQuestionInput {
   options?: string[]
   correct_answer: string
   explanation?: string
+  type?: 'multiple-choice' | 'true-false' | 'short-answer'
+  difficulty?: 'easy' | 'medium' | 'hard'
 }
 
 // ---------------------------------------------------------------------------
@@ -183,15 +190,23 @@ export interface KeyTerm {
   definition: string
 }
 
+/** Options for AI-powered quiz generation. */
+export interface QuizGenerationOptions {
+  questionCount: number
+  questionTypes: string
+  difficulty: string
+}
+
 /** Event payload streamed from main to renderer during AI operations. */
 export interface AiStreamEvent {
   documentId: number
-  operationType: 'summary' | 'key_points' | 'key_terms'
+  operationType: 'summary' | 'key_points' | 'key_terms' | 'quiz'
   chunk: string
   done: boolean
   error?: string
   chunkIndex?: number
   totalChunks?: number
+  quizId?: number
 }
 
 /** Model information returned by Ollama's /api/tags endpoint. */

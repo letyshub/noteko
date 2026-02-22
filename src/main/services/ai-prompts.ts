@@ -48,6 +48,77 @@ export const COMBINE_KEY_TERMS_PROMPT =
   'The following are key terms extracted from consecutive sections of a document. Merge them into a deduplicated list of 5-15 key terms with definitions. Remove duplicate terms, merge definitions where appropriate. Return ONLY a JSON array where each element has a "term" and "definition" field:\n\n{text}'
 
 // ---------------------------------------------------------------------------
+// Quiz generation prompts
+// ---------------------------------------------------------------------------
+
+export const QUIZ_GENERATION_PROMPT = `Generate exactly {questionCount} quiz questions from the following document text.
+
+Question types to generate: {questionTypes}
+Difficulty level: {difficulty}
+
+Rules:
+- Output ONLY a JSON array of question objects, no other text.
+- Each object must have these exact fields:
+  "question" (string), "type" (one of "multiple-choice", "true-false", "short-answer"),
+  "options" (array of exactly 4 strings for multiple-choice, ["True", "False"] for true-false, null for short-answer),
+  "correct_answer" (string, must be one of the options for multiple-choice/true-false),
+  "explanation" (string), "difficulty" (one of "easy", "medium", "hard")
+
+Example output:
+[
+  {
+    "question": "What is the main topic discussed?",
+    "type": "multiple-choice",
+    "options": ["Topic A", "Topic B", "Topic C", "Topic D"],
+    "correct_answer": "Topic A",
+    "explanation": "The document primarily discusses Topic A.",
+    "difficulty": "easy"
+  },
+  {
+    "question": "The document states X is true.",
+    "type": "true-false",
+    "options": ["True", "False"],
+    "correct_answer": "True",
+    "explanation": "According to the document, X is indeed true.",
+    "difficulty": "medium"
+  },
+  {
+    "question": "What process does the author describe?",
+    "type": "short-answer",
+    "options": null,
+    "correct_answer": "The process of Y",
+    "explanation": "The author describes Y in detail in section 2.",
+    "difficulty": "hard"
+  }
+]
+
+Document text:
+{text}`
+
+export const COMBINE_QUIZ_QUESTIONS_PROMPT = `The following are quiz questions generated from consecutive sections of a document. Merge them into a single deduplicated list of exactly {questionCount} questions.
+
+Rules:
+- Remove duplicate or near-duplicate questions.
+- Keep the best-worded version when duplicates exist.
+- Maintain a mix of question types if present.
+- Output ONLY a JSON array of question objects with the same format as the input.
+- Each object must have: "question", "type", "options", "correct_answer", "explanation", "difficulty".
+
+Questions to merge:
+{text}`
+
+export const QUIZ_RETRY_PROMPT = `Your previous response could not be parsed as valid JSON. The error was: {error}
+
+Please try again. Generate exactly {questionCount} quiz questions from the document text below.
+Question types: {questionTypes} | Difficulty: {difficulty}
+
+Output ONLY a valid JSON array of question objects. Each object must have:
+"question" (string), "type" (string), "options" (array or null), "correct_answer" (string), "explanation" (string), "difficulty" (string).
+
+Document text:
+{text}`
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

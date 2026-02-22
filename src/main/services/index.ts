@@ -48,3 +48,9 @@ export { getSetting, setSetting, getAllSettings } from './settings-service'
 
 // Chunking / map-reduce AI operations
 export { splitTextIntoChunks, runChunkedAiGeneration } from './chunking-service'
+
+// Quiz generation AI operations
+export { parseQuizQuestions, validateQuizQuestion, buildQuizPrompt } from './quiz-generation-service'
+
+// AI prompt constants
+export { QUIZ_GENERATION_PROMPT, COMBINE_QUIZ_QUESTIONS_PROMPT, QUIZ_RETRY_PROMPT } from './ai-prompts'
