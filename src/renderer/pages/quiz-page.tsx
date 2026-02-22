@@ -1,6 +1,16 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router'
-import { GraduationCap, ArrowLeft, ChevronRight, Calendar, FileText, Hash, Check, AlertCircle } from 'lucide-react'
+import {
+  GraduationCap,
+  ArrowLeft,
+  ChevronRight,
+  Calendar,
+  FileText,
+  Hash,
+  Check,
+  AlertCircle,
+  Play,
+} from 'lucide-react'
 import { useIpc } from '@renderer/hooks/use-ipc'
 import { useUIStore } from '@renderer/store/ui-store'
 import { Button } from '@renderer/components/ui/button'
@@ -8,37 +18,9 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Skeleton } from '@renderer/components/ui/skeleton'
 import { Separator } from '@renderer/components/ui/separator'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
+import { DifficultyBadge } from '@renderer/components/quiz/difficulty-badge'
+import { typeBadgeLabel, OPTION_LETTERS } from '@renderer/components/quiz/question-utils'
 import type { QuizQuestionDto } from '@shared/types'
-
-// ---------------------------------------------------------------------------
-// Helper: Difficulty badge color
-// ---------------------------------------------------------------------------
-function DifficultyBadge({ difficulty }: { difficulty?: string }) {
-  if (!difficulty) return null
-  const label = difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
-  return <Badge variant="outline">{label}</Badge>
-}
-
-// ---------------------------------------------------------------------------
-// Helper: Question type badge label
-// ---------------------------------------------------------------------------
-function typeBadgeLabel(type?: string): string {
-  switch (type) {
-    case 'multiple-choice':
-      return 'MCQ'
-    case 'true-false':
-      return 'T/F'
-    case 'short-answer':
-      return 'Short Answer'
-    default:
-      return 'Question'
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Helper: MCQ option letter
-// ---------------------------------------------------------------------------
-const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 
 // ---------------------------------------------------------------------------
 // QuestionCard
@@ -260,6 +242,12 @@ export function QuizPage() {
                   <DifficultyBadge difficulty={quiz.difficulty_level} />
                 </div>
               </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => navigate(`/quizzes/${id}/take`)}>
+                <Play className="mr-1 h-4 w-4" />
+                Take Quiz
+              </Button>
             </div>
             <Separator />
           </div>
