@@ -414,6 +414,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.PROJECTS_CREATE, async (_event, input: CreateProjectInput) => {
     try {
       const result = createProject(input)
+      // Auto-create a root folder for the new project
+      createFolder({ name: 'Root', project_id: result!.id })
       return createIpcSuccess(result)
     } catch (error) {
       return createIpcError('PROJECTS_CREATE_ERROR', error instanceof Error ? error.message : 'Unknown error')
@@ -444,7 +446,12 @@ export function registerIpcHandlers(): void {
   // ─── Folders ──────────────────────────────────────────────────
   ipcMain.handle(IPC_CHANNELS.FOLDERS_LIST, async (_event, projectId: number) => {
     try {
-      const result = listFolders(projectId)
+      let result = listFolders(projectId)
+      // Auto-create root folder for projects that don't have one yet
+      if (result.length === 0) {
+        createFolder({ name: 'Root', project_id: projectId })
+        result = listFolders(projectId)
+      }
       return createIpcSuccess(result)
     } catch (error) {
       return createIpcError('FOLDERS_LIST_ERROR', error instanceof Error ? error.message : 'Unknown error')

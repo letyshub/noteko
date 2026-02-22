@@ -42,6 +42,8 @@ export function ProjectPage() {
     folderId: number
   } | null>(null)
   const selectedFolderId = selectedFolder?.projectId === projectId ? selectedFolder.folderId : null
+  // Root folder is the first folder for this project (auto-created with project)
+  const rootFolderId = folders.length > 0 ? folders[0].id : null
 
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
   const [editProjectOpen, setEditProjectOpen] = useState(false)
@@ -185,7 +187,7 @@ export function ProjectPage() {
           </div>
           <Separator />
           <div className="flex-1 p-4">
-            <DropZone projectId={projectId} folderId={selectedFolderId ?? 0}>
+            <DropZone projectId={projectId} folderId={selectedFolderId ?? rootFolderId ?? 0}>
               <DocumentList
                 documents={sortedDocuments}
                 onDeleteDocument={handleDeleteDocument}

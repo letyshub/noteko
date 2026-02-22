@@ -120,7 +120,7 @@ export const listAllAttempts = (): QuizAttemptWithContextDto[] => {
     .from(quizAttempts)
     .innerJoin(quizzes, eq(quizAttempts.quiz_id, quizzes.id))
     .innerJoin(documents, eq(quizzes.document_id, documents.id))
-    .orderBy(desc(quizAttempts.completed_at))
+    .orderBy(desc(quizAttempts.completed_at), desc(quizAttempts.id))
     .all()
 
   return rows
