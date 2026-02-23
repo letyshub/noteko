@@ -8,9 +8,21 @@ import { quizQuestions } from './quiz-questions'
 import { quizAttempts } from './quiz-attempts'
 import { appLogs } from './app-logs'
 import { appSettings } from './app-settings'
+import { recentSearches } from './recent-searches'
 
 // Re-export all table definitions
-export { projects, folders, documents, documentContent, quizzes, quizQuestions, quizAttempts, appLogs, appSettings }
+export {
+  projects,
+  folders,
+  documents,
+  documentContent,
+  quizzes,
+  quizQuestions,
+  quizAttempts,
+  appLogs,
+  appSettings,
+  recentSearches,
+}
 
 // Select model types (for reading from DB)
 export type Project = InferSelectModel<typeof projects>
@@ -22,6 +34,7 @@ export type QuizQuestion = InferSelectModel<typeof quizQuestions>
 export type QuizAttempt = InferSelectModel<typeof quizAttempts>
 export type AppLog = InferSelectModel<typeof appLogs>
 export type AppSetting = InferSelectModel<typeof appSettings>
+export type RecentSearch = InferSelectModel<typeof recentSearches>
 
 // Insert model types (for writing to DB)
 export type NewProject = InferInsertModel<typeof projects>
@@ -33,3 +46,4 @@ export type NewQuizQuestion = InferInsertModel<typeof quizQuestions>
 export type NewQuizAttempt = InferInsertModel<typeof quizAttempts>
 export type NewAppLog = InferInsertModel<typeof appLogs>
 export type NewAppSetting = InferInsertModel<typeof appSettings>
+export type NewRecentSearch = InferInsertModel<typeof recentSearches>

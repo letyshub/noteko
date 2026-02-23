@@ -348,6 +348,45 @@ export interface LogStreamEvent {
 }
 
 // ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+/** Filter input for the searchDocuments query. */
+export interface SearchFilterInput {
+  query: string
+  projectId?: number
+  fileType?: string
+  dateRange?: LogDateRange
+}
+
+/** A single search result entry. */
+export interface SearchResultDto {
+  documentId: number
+  documentName: string
+  projectName: string
+  fileType: string
+  snippet: string | null
+  createdAt: string
+  processingStatus: ProcessingStatus
+  matchType: 'content' | 'name'
+}
+
+/** Paginated result from searchDocuments. */
+export interface SearchListResultDto {
+  results: SearchResultDto[]
+  total: number
+  hasMore: boolean
+}
+
+/** A recent search entry for the search history. */
+export interface RecentSearchDto {
+  id: number
+  query: string
+  resultCount: number
+  searchedAt: string
+}
+
+// ---------------------------------------------------------------------------
 // File Upload
 // ---------------------------------------------------------------------------
 

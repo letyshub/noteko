@@ -1,10 +1,13 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Routes, Route } from 'react-router'
+import { Search } from 'lucide-react'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@renderer/components/ui/sidebar'
 import { Separator } from '@renderer/components/ui/separator'
+import { Button } from '@renderer/components/ui/button'
 import { Toaster } from '@renderer/components/ui/sonner'
 import { AppSidebar } from '@renderer/components/layout/app-sidebar'
 import { ErrorBoundary } from '@renderer/components/layout/error-boundary'
+import { SearchDialog } from '@renderer/components/search/search-dialog'
 import { useTheme } from '@renderer/hooks/use-theme'
 import { useUIStore } from '@renderer/store/ui-store'
 import { DashboardPage } from '@renderer/pages/dashboard-page'
@@ -22,6 +25,7 @@ export function App() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen)
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen)
   const currentPageTitle = useUIStore((s) => s.currentPageTitle)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const handleSidebarChange = useCallback(
     (isOpen: boolean) => {
@@ -39,6 +43,18 @@ export function App() {
             <SidebarTrigger />
             <Separator orientation="vertical" className="h-4" />
             <span className="font-medium">{currentPageTitle || 'Noteko'}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto gap-2 text-muted-foreground"
+              onClick={() => setSearchOpen(true)}
+            >
+              <Search className="size-4" />
+              <span className="hidden sm:inline">Search...</span>
+              <kbd className="pointer-events-none hidden h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                Ctrl+K
+              </kbd>
+            </Button>
           </header>
           <main className="flex flex-1 flex-col">
             <ErrorBoundary>
@@ -56,6 +72,7 @@ export function App() {
           </main>
         </SidebarInset>
       </SidebarProvider>
+      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
       <Toaster />
     </>
   )

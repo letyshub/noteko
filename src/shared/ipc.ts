@@ -46,6 +46,9 @@ import type {
   LogListResultDto,
   LogStatisticsDto,
   LogStreamEvent,
+  SearchFilterInput,
+  SearchListResultDto,
+  RecentSearchDto,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -127,6 +130,13 @@ export const IPC_CHANNELS = {
   LOGS_STATS: 'db:logs:stats',
   LOGS_CLEAR: 'db:logs:clear',
   LOGS_REPORT_ERROR: 'db:logs:report-error',
+
+  // Search
+  DOCUMENTS_SEARCH: 'db:documents:search',
+  SEARCH_RECENT_LIST: 'db:search:recent-list',
+  SEARCH_RECENT_SAVE: 'db:search:recent-save',
+  SEARCH_RECENT_CLEAR: 'db:search:recent-clear',
+  SEARCH_RECENT_DELETE: 'db:search:recent-delete',
 
   // CSV Export
   FILE_EXPORT_CSV: 'file:export-csv',
@@ -299,6 +309,13 @@ export interface IpcChannelMap {
     args: [level: string, message: string, context?: Record<string, unknown>]
     response: IpcResult<void>
   }
+
+  // Search
+  'db:documents:search': { args: [filter: SearchFilterInput]; response: IpcResult<SearchListResultDto> }
+  'db:search:recent-list': { args: []; response: IpcResult<RecentSearchDto[]> }
+  'db:search:recent-save': { args: [query: string, resultCount: number]; response: IpcResult<void> }
+  'db:search:recent-clear': { args: []; response: IpcResult<void> }
+  'db:search:recent-delete': { args: [id: number]; response: IpcResult<void> }
 
   // CSV Export
   'file:export-csv': { args: [data: string, defaultFilename: string]; response: IpcResult<string | null> }

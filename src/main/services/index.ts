@@ -76,3 +76,12 @@ export { parseQuizQuestions, validateQuizQuestion, buildQuizPrompt } from './qui
 
 // AI prompt constants
 export { QUIZ_GENERATION_PROMPT, COMBINE_QUIZ_QUESTIONS_PROMPT, QUIZ_RETRY_PROMPT } from './ai-prompts'
+
+// Search operations
+export {
+  searchDocuments,
+  saveRecentSearch,
+  listRecentSearches,
+  clearRecentSearches,
+  deleteRecentSearch,
+} from './search-service'

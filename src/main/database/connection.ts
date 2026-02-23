@@ -110,6 +110,74 @@ const runMigrations = (db: Database.Database): void => {
       log.info('[migration] Added quiz_questions.explanation')
     }
   }
+
+  // FTS5 full-text search index on document_content
+  if (tableExists('document_content')) {
+    const ftsExists = db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='documents_fts'")
+      .get() as unknown
+    if (ftsExists == null) {
+      // Create FTS5 virtual table using external content mode (no data duplication)
+      db.exec(`
+        CREATE VIRTUAL TABLE documents_fts USING fts5(
+          raw_text,
+          summary,
+          content='document_content',
+          content_rowid='id'
+        )
+      `)
+      log.info('[migration] Created documents_fts virtual table')
+
+      // AFTER INSERT trigger: sync new rows into FTS5
+      db.exec(`
+        CREATE TRIGGER documents_fts_ai AFTER INSERT ON document_content BEGIN
+          INSERT INTO documents_fts(rowid, raw_text, summary)
+          VALUES (NEW.id, NEW.raw_text, NEW.summary);
+        END
+      `)
+      log.info('[migration] Created documents_fts AFTER INSERT trigger')
+
+      // AFTER UPDATE trigger: delete old entry then insert new entry (required for external content mode)
+      db.exec(`
+        CREATE TRIGGER documents_fts_au AFTER UPDATE ON document_content BEGIN
+          INSERT INTO documents_fts(documents_fts, rowid, raw_text, summary)
+          VALUES('delete', OLD.id, OLD.raw_text, OLD.summary);
+          INSERT INTO documents_fts(rowid, raw_text, summary)
+          VALUES (NEW.id, NEW.raw_text, NEW.summary);
+        END
+      `)
+      log.info('[migration] Created documents_fts AFTER UPDATE trigger')
+
+      // AFTER DELETE trigger: remove entry from FTS5
+      db.exec(`
+        CREATE TRIGGER documents_fts_ad AFTER DELETE ON document_content BEGIN
+          INSERT INTO documents_fts(documents_fts, rowid, raw_text, summary)
+          VALUES('delete', OLD.id, OLD.raw_text, OLD.summary);
+        END
+      `)
+      log.info('[migration] Created documents_fts AFTER DELETE trigger')
+
+      // Backfill: index all existing document_content rows with non-null raw_text
+      db.exec(`
+        INSERT INTO documents_fts(rowid, raw_text, summary)
+        SELECT id, raw_text, summary FROM document_content WHERE raw_text IS NOT NULL
+      `)
+      log.info('[migration] Backfilled documents_fts from existing document_content rows')
+    }
+  }
+
+  // Recent searches table for search history
+  if (!tableExists('recent_searches')) {
+    db.exec(`
+      CREATE TABLE recent_searches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        query TEXT NOT NULL,
+        result_count INTEGER NOT NULL DEFAULT 0,
+        searched_at TEXT NOT NULL
+      )
+    `)
+    log.info('[migration] Created recent_searches table')
+  }
 }
 
 /**
@@ -135,4 +203,4 @@ const getDb = (): BetterSQLite3Database<typeof schema> => {
   return db
 }
 
-export { initializeDatabase, closeDatabase, getDb }
+export { initializeDatabase, closeDatabase, getDb, runMigrations }

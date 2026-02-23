@@ -90,6 +90,14 @@ const electronAPI: ElectronAPI = {
   'db:logs:report-error': (level, message, context) =>
     ipcRenderer.invoke(IPC_CHANNELS.LOGS_REPORT_ERROR, level, message, context),
 
+  // Search
+  'db:documents:search': (filter) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_SEARCH, filter),
+  'db:search:recent-list': () => ipcRenderer.invoke(IPC_CHANNELS.SEARCH_RECENT_LIST),
+  'db:search:recent-save': (query, resultCount) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SEARCH_RECENT_SAVE, query, resultCount),
+  'db:search:recent-clear': () => ipcRenderer.invoke(IPC_CHANNELS.SEARCH_RECENT_CLEAR),
+  'db:search:recent-delete': (id) => ipcRenderer.invoke(IPC_CHANNELS.SEARCH_RECENT_DELETE, id),
+
   // CSV Export
   'file:export-csv': (data, defaultFilename) => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXPORT_CSV, data, defaultFilename),
 

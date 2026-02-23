@@ -23,6 +23,7 @@ import type {
   KeyTerm,
   QuizGenerationOptions,
   LogFilterInput,
+  SearchFilterInput,
 } from '@shared/types'
 import {
   listProjects,
@@ -77,6 +78,11 @@ import {
   parseQuizQuestions,
   validateQuizQuestion,
   buildQuizPrompt,
+  searchDocuments,
+  saveRecentSearch,
+  listRecentSearches,
+  clearRecentSearches,
+  deleteRecentSearch,
 } from '@main/services'
 import { getMainWindow } from '@main/main-window'
 import {
@@ -1134,6 +1140,52 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess(result)
     } catch (error) {
       return createIpcError('FILE_EXPORT_CSV_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Search ───────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.DOCUMENTS_SEARCH, async (_event, filter: SearchFilterInput) => {
+    try {
+      const result = searchDocuments(filter)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DOCUMENTS_SEARCH_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SEARCH_RECENT_LIST, async () => {
+    try {
+      const result = listRecentSearches()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('SEARCH_RECENT_LIST_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SEARCH_RECENT_SAVE, async (_event, query: string, resultCount: number) => {
+    try {
+      saveRecentSearch(query, resultCount)
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('SEARCH_RECENT_SAVE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SEARCH_RECENT_CLEAR, async () => {
+    try {
+      clearRecentSearches()
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('SEARCH_RECENT_CLEAR_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SEARCH_RECENT_DELETE, async (_event, id: number) => {
+    try {
+      deleteRecentSearch(id)
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('SEARCH_RECENT_DELETE_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 }
