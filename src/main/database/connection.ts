@@ -34,12 +34,44 @@ const initializeDatabase = (dbPath?: string): void => {
     sqlite.pragma('journal_mode = WAL')
     sqlite.pragma('foreign_keys = ON')
 
+    runMigrations(sqlite)
+
     db = drizzle(sqlite, { schema })
 
     log.info(`Database initialized at ${resolvedPath}`)
   } catch (error) {
     log.error('Failed to initialize database:', error)
     throw error
+  }
+}
+
+/**
+ * Run lightweight schema migrations to add columns that were introduced
+ * after the initial table creation.  Each migration is idempotent — it
+ * checks whether the column already exists via PRAGMA table_info before
+ * attempting ALTER TABLE.
+ */
+const runMigrations = (db: Database.Database): void => {
+  const tableExists = (table: string): boolean => {
+    const row = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table) as unknown
+    return row != null
+  }
+
+  const hasColumn = (table: string, column: string): boolean => {
+    const cols = db.pragma(`table_info(${table})`) as Array<{ name: string }>
+    return cols.some((c) => c.name === column)
+  }
+
+  // Only migrate tables that already exist (skip on fresh databases)
+  if (tableExists('document_content')) {
+    if (!hasColumn('document_content', 'key_terms')) {
+      db.exec('ALTER TABLE document_content ADD COLUMN key_terms TEXT')
+      log.info('[migration] Added document_content.key_terms')
+    }
+    if (!hasColumn('document_content', 'summary_style')) {
+      db.exec('ALTER TABLE document_content ADD COLUMN summary_style TEXT')
+      log.info('[migration] Added document_content.summary_style')
+    }
   }
 }
 
