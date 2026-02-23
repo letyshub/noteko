@@ -405,3 +405,36 @@ export interface FileValidationResult {
   size: number
   type: string
 }
+
+// ---------------------------------------------------------------------------
+// Tag
+// ---------------------------------------------------------------------------
+
+export interface TagDto {
+  id: number
+  name: string
+  color: string | null
+  created_at: string
+}
+
+export interface TagCloudItemDto {
+  id: number
+  name: string
+  color: string | null
+  document_count: number
+}
+
+export interface CreateTagInput {
+  name: string
+  color?: string
+}
+
+export interface UpdateTagInput {
+  name?: string
+  color?: string
+}
+
+export interface SetDocumentTagsInput {
+  document_id: number
+  tag_ids: number[]
+}

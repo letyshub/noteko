@@ -1,6 +1,14 @@
 import { eq, inArray } from 'drizzle-orm'
 import { getDb } from '@main/database/connection'
-import { folders, documents, documentContent, quizzes, quizQuestions, quizAttempts } from '@main/database/schema'
+import {
+  folders,
+  documents,
+  documentContent,
+  documentTags,
+  quizzes,
+  quizQuestions,
+  quizAttempts,
+} from '@main/database/schema'
 
 export const listFolders = (projectId: number) => {
   return getDb().select().from(folders).where(eq(folders.project_id, projectId)).all()
@@ -64,6 +72,7 @@ export const cascadeDeleteFolder = (id: number) => {
         tx.delete(quizzes).where(inArray(quizzes.document_id, docIds)).run()
       }
 
+      tx.delete(documentTags).where(inArray(documentTags.document_id, docIds)).run()
       tx.delete(documentContent).where(inArray(documentContent.document_id, docIds)).run()
       tx.delete(documents).where(inArray(documents.folder_id, allFolderIds)).run()
     }

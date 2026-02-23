@@ -6,6 +6,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
+import { TagFilterDropdown } from '@renderer/components/tags/tag-filter-dropdown'
+import type { TagCloudItemDto } from '@shared/types'
 
 export type SortField = 'name' | 'date' | 'size' | 'type'
 
@@ -14,6 +16,9 @@ interface DocumentListToolbarProps {
   onSortChange: (field: SortField) => void
   viewMode?: 'list' | 'grid'
   onViewModeChange?: (mode: 'list' | 'grid') => void
+  selectedTagIds?: number[]
+  tagCloud?: TagCloudItemDto[]
+  onTagSelectionChange?: (tagIds: number[]) => void
 }
 
 const sortLabels: Record<SortField, string> = {
@@ -28,6 +33,9 @@ export function DocumentListToolbar({
   onSortChange,
   viewMode = 'list',
   onViewModeChange,
+  selectedTagIds,
+  tagCloud,
+  onTagSelectionChange,
 }: DocumentListToolbarProps) {
   return (
     <div className="flex items-center gap-2">
@@ -51,6 +59,15 @@ export function DocumentListToolbar({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Tag filter */}
+      {onTagSelectionChange && tagCloud && (
+        <TagFilterDropdown
+          selectedTagIds={selectedTagIds ?? []}
+          tagCloud={tagCloud}
+          onSelectionChange={onTagSelectionChange}
+        />
+      )}
 
       {/* View mode toggle */}
       {onViewModeChange && (

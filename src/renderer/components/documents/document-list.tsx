@@ -6,19 +6,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu'
+import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { ProcessingStatusBadge } from '@renderer/components/documents/processing-status-badge'
 import { DocumentGridItem } from '@renderer/components/documents/document-grid-item'
+import { TagBadge } from '@renderer/components/tags/tag-badge'
 import { formatFileSize, getFileIcon } from '@renderer/components/documents/document-utils'
-import type { DocumentDto } from '@shared/types'
+import type { DocumentDto, TagDto } from '@shared/types'
 
 interface DocumentListProps {
   documents: DocumentDto[]
   onDeleteDocument: (id: number) => void
   viewMode?: 'list' | 'grid'
+  documentTags?: Record<number, TagDto[]>
 }
 
-export function DocumentList({ documents, onDeleteDocument, viewMode = 'list' }: DocumentListProps) {
+export function DocumentList({ documents, onDeleteDocument, viewMode = 'list', documentTags }: DocumentListProps) {
   const navigate = useNavigate()
 
   if (documents.length === 0) {
@@ -34,7 +37,12 @@ export function DocumentList({ documents, onDeleteDocument, viewMode = 'list' }:
     return (
       <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
         {documents.map((doc) => (
-          <DocumentGridItem key={doc.id} document={doc} onClick={() => navigate(`/documents/${doc.id}`)} />
+          <DocumentGridItem
+            key={doc.id}
+            document={doc}
+            onClick={() => navigate(`/documents/${doc.id}`)}
+            tags={documentTags?.[doc.id]}
+          />
         ))}
       </div>
     )
@@ -60,6 +68,18 @@ export function DocumentList({ documents, onDeleteDocument, viewMode = 'list' }:
               <div className="flex items-center gap-2">
                 <p className="text-xs text-muted-foreground">{formatFileSize(doc.file_size)}</p>
                 <ProcessingStatusBadge status={doc.processing_status} />
+                {documentTags?.[doc.id] && documentTags[doc.id].length > 0 && (
+                  <>
+                    {documentTags[doc.id].slice(0, 2).map((tag) => (
+                      <TagBadge key={tag.id} tag={tag} />
+                    ))}
+                    {documentTags[doc.id].length > 2 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{documentTags[doc.id].length - 2}
+                      </Badge>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 

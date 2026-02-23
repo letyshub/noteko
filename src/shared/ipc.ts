@@ -49,6 +49,11 @@ import type {
   SearchFilterInput,
   SearchListResultDto,
   RecentSearchDto,
+  TagDto,
+  TagCloudItemDto,
+  CreateTagInput,
+  UpdateTagInput,
+  SetDocumentTagsInput,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -140,6 +145,18 @@ export const IPC_CHANNELS = {
 
   // CSV Export
   FILE_EXPORT_CSV: 'file:export-csv',
+
+  // Tags
+  TAGS_LIST: 'db:tags:list',
+  TAGS_CREATE: 'db:tags:create',
+  TAGS_UPDATE: 'db:tags:update',
+  TAGS_DELETE: 'db:tags:delete',
+  DOCUMENT_TAGS_GET: 'db:document-tags:get',
+  DOCUMENT_TAGS_SET: 'db:document-tags:set',
+  DOCUMENT_TAGS_BATCH_GET: 'db:document-tags:batch-get',
+  TAGS_CLOUD: 'db:tags:cloud',
+  TAGS_SUGGEST: 'db:tags:suggest',
+  DOCUMENTS_BY_TAGS: 'db:documents:by-tags',
 
   // Events (push from main to renderer)
   PROGRESS: 'app:progress',
@@ -319,6 +336,18 @@ export interface IpcChannelMap {
 
   // CSV Export
   'file:export-csv': { args: [data: string, defaultFilename: string]; response: IpcResult<string | null> }
+
+  // Tags
+  'db:tags:list': { args: []; response: IpcResult<TagDto[]> }
+  'db:tags:create': { args: [input: CreateTagInput]; response: IpcResult<TagDto> }
+  'db:tags:update': { args: [id: number, input: UpdateTagInput]; response: IpcResult<TagDto> }
+  'db:tags:delete': { args: [id: number]; response: IpcResult<{ affectedDocumentCount: number }> }
+  'db:document-tags:get': { args: [documentId: number]; response: IpcResult<TagDto[]> }
+  'db:document-tags:set': { args: [input: SetDocumentTagsInput]; response: IpcResult<void> }
+  'db:document-tags:batch-get': { args: [documentIds: number[]]; response: IpcResult<Record<number, TagDto[]>> }
+  'db:tags:cloud': { args: []; response: IpcResult<TagCloudItemDto[]> }
+  'db:tags:suggest': { args: [query: string]; response: IpcResult<TagDto[]> }
+  'db:documents:by-tags': { args: [tagIds: number[]]; response: IpcResult<DocumentDto[]> }
 }
 
 // ---------------------------------------------------------------------------

@@ -101,6 +101,18 @@ const electronAPI: ElectronAPI = {
   // CSV Export
   'file:export-csv': (data, defaultFilename) => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXPORT_CSV, data, defaultFilename),
 
+  // Tags
+  'db:tags:list': () => ipcRenderer.invoke(IPC_CHANNELS.TAGS_LIST),
+  'db:tags:create': (input) => ipcRenderer.invoke(IPC_CHANNELS.TAGS_CREATE, input),
+  'db:tags:update': (id, input) => ipcRenderer.invoke(IPC_CHANNELS.TAGS_UPDATE, id, input),
+  'db:tags:delete': (id) => ipcRenderer.invoke(IPC_CHANNELS.TAGS_DELETE, id),
+  'db:document-tags:get': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENT_TAGS_GET, documentId),
+  'db:document-tags:set': (input) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENT_TAGS_SET, input),
+  'db:document-tags:batch-get': (documentIds) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENT_TAGS_BATCH_GET, documentIds),
+  'db:tags:cloud': () => ipcRenderer.invoke(IPC_CHANNELS.TAGS_CLOUD),
+  'db:tags:suggest': (query) => ipcRenderer.invoke(IPC_CHANNELS.TAGS_SUGGEST, query),
+  'db:documents:by-tags': (tagIds) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_BY_TAGS, tagIds),
+
   // Event subscriptions (main -> renderer push)
   on: (channel, callback) => {
     const listener = (_event: IpcRendererEvent, data: unknown) =>

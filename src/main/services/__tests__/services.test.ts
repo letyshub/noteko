@@ -72,6 +72,14 @@ const createTables = (sqlite: Database.Database): void => {
       processed_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS document_tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id INTEGER NOT NULL REFERENCES documents(id),
+      tag_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(document_id, tag_id)
+    );
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL,

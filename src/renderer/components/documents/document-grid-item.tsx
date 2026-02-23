@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { File, FileText, FileImage } from 'lucide-react'
+import { Badge } from '@renderer/components/ui/badge'
 import { ProcessingStatusBadge } from '@renderer/components/documents/processing-status-badge'
+import { TagBadge } from '@renderer/components/tags/tag-badge'
 import {
   formatFileSize,
   isImage,
@@ -8,11 +10,12 @@ import {
   isPdf,
   isTextBased,
 } from '@renderer/components/documents/document-utils'
-import type { DocumentDto } from '@shared/types'
+import type { DocumentDto, TagDto } from '@shared/types'
 
 interface DocumentGridItemProps {
   document: DocumentDto
   onClick: () => void
+  tags?: TagDto[]
 }
 
 function FileTypeIcon({ fileType }: { fileType: string }) {
@@ -22,7 +25,7 @@ function FileTypeIcon({ fileType }: { fileType: string }) {
   return <File className="h-10 w-10 text-muted-foreground" />
 }
 
-export function DocumentGridItem({ document, onClick }: DocumentGridItemProps) {
+export function DocumentGridItem({ document, onClick, tags }: DocumentGridItemProps) {
   const [imgError, setImgError] = useState(false)
   const showImage = isImage(document.file_type) && !imgError
 
@@ -53,6 +56,18 @@ export function DocumentGridItem({ document, onClick }: DocumentGridItemProps) {
           <span className="text-xs text-muted-foreground">{formatFileSize(document.file_size)}</span>
           <ProcessingStatusBadge status={document.processing_status} />
         </div>
+        {tags && tags.length > 0 && (
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {tags.slice(0, 3).map((tag) => (
+              <TagBadge key={tag.id} tag={tag} />
+            ))}
+            {tags.length > 3 && (
+              <Badge variant="outline" className="text-xs">
+                +{tags.length - 3}
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -178,6 +178,33 @@ const runMigrations = (db: Database.Database): void => {
     `)
     log.info('[migration] Created recent_searches table')
   }
+
+  // Tags table for document tagging
+  if (!tableExists('tags')) {
+    db.exec(`
+      CREATE TABLE tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        color TEXT,
+        created_at TEXT NOT NULL
+      )
+    `)
+    log.info('[migration] Created tags table')
+  }
+
+  // Document-tag junction table (many-to-many)
+  if (!tableExists('document_tags')) {
+    db.exec(`
+      CREATE TABLE document_tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_id INTEGER NOT NULL REFERENCES documents(id),
+        tag_id INTEGER NOT NULL REFERENCES tags(id),
+        created_at TEXT NOT NULL,
+        UNIQUE(document_id, tag_id)
+      )
+    `)
+    log.info('[migration] Created document_tags table')
+  }
 }
 
 /**

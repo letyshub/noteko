@@ -85,3 +85,17 @@ export {
   clearRecentSearches,
   deleteRecentSearch,
 } from './search-service'
+
+// Tag operations
+export {
+  listTags,
+  createTag,
+  updateTag,
+  deleteTag,
+  getDocumentTags,
+  setDocumentTags,
+  batchGetDocumentTags,
+  getTagCloud,
+  suggestTags,
+  listDocumentsByTags,
+} from './tag-service'

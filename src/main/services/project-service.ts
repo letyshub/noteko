@@ -5,6 +5,7 @@ import {
   folders,
   documents,
   documentContent,
+  documentTags,
   quizzes,
   quizQuestions,
   quizAttempts,
@@ -65,6 +66,7 @@ export const cascadeDeleteProject = (id: number) => {
         tx.delete(quizzes).where(inArray(quizzes.document_id, docIds)).run()
       }
 
+      tx.delete(documentTags).where(inArray(documentTags.document_id, docIds)).run()
       tx.delete(documentContent).where(inArray(documentContent.document_id, docIds)).run()
       tx.delete(documents).where(eq(documents.project_id, id)).run()
     }

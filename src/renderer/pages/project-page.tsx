@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router'
-import { FolderPlus, Pencil, Trash2 } from 'lucide-react'
+import { FolderPlus, Pencil, Trash2, X } from 'lucide-react'
+import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Separator } from '@renderer/components/ui/separator'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
@@ -13,8 +14,8 @@ import { UploadProgress } from '@renderer/components/upload/upload-progress'
 import { CreateFolderDialog } from '@renderer/components/folders/create-folder-dialog'
 import { EditProjectDialog } from '@renderer/components/projects/edit-project-dialog'
 import { DeleteProjectDialog } from '@renderer/components/projects/delete-project-dialog'
-import { useProjectStore, useFolderStore, useDocumentStore, useUIStore } from '@renderer/store'
-import type { DocumentDto } from '@shared/types'
+import { useProjectStore, useFolderStore, useDocumentStore, useUIStore, useTagStore } from '@renderer/store'
+import type { DocumentDto, TagDto } from '@shared/types'
 
 export function ProjectPage() {
   const { id } = useParams<{ id: string }>()
@@ -36,6 +37,10 @@ export function ProjectPage() {
   const documentViewMode = useUIStore((s) => s.documentViewMode)
   const setDocumentViewMode = useUIStore((s) => s.setDocumentViewMode)
 
+  const tagCloud = useTagStore((s) => s.tagCloud)
+  const fetchTagCloud = useTagStore((s) => s.fetchTagCloud)
+  const batchGetDocumentTags = useTagStore((s) => s.batchGetDocumentTags)
+
   // Compound state: folder selection auto-resets when project changes (no effect needed)
   const [selectedFolder, setSelectedFolder] = useState<{
     projectId: number
@@ -52,9 +57,55 @@ export function ProjectPage() {
   // Toolbar state
   const [sortBy, setSortBy] = useState<SortField>('name')
 
-  // Sort documents
+  // Tag filter state
+  const [selectedTags, setSelectedTags] = useState<number[]>([])
+  const [tagFilteredDocs, setTagFilteredDocs] = useState<DocumentDto[] | null>(null)
+  const [documentTags, setDocumentTags] = useState<Record<number, TagDto[]>>({})
+
+  // Fetch tag cloud
+  useEffect(() => {
+    fetchTagCloud()
+  }, [fetchTagCloud])
+
+  // When tags are selected, call listDocumentsByTags IPC
+  useEffect(() => {
+    if (selectedTags.length === 0) return
+    let cancelled = false
+    window.electronAPI['db:documents:by-tags'](selectedTags).then((result) => {
+      if (!cancelled && result.success) {
+        // Filter to only docs in this project
+        const projectDocs = result.data.filter((d: DocumentDto) => d.project_id === projectId)
+        setTagFilteredDocs(projectDocs)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedTags, projectId])
+
+  // Derive effective filtered docs (null when no tags selected, avoids sync setState in effect)
+  const effectiveTagFilteredDocs = selectedTags.length > 0 ? tagFilteredDocs : null
+
+  // Batch-load tags for displayed documents
+  const displayedDocuments = effectiveTagFilteredDocs ?? documents
+  useEffect(() => {
+    if (displayedDocuments.length === 0) return
+    const docIds = displayedDocuments.map((d) => d.id)
+    batchGetDocumentTags(docIds).then(setDocumentTags)
+  }, [displayedDocuments, batchGetDocumentTags])
+
+  const handleTagSelectionChange = useCallback((tagIds: number[]) => {
+    setSelectedTags(tagIds)
+  }, [])
+
+  const handleRemoveTagFilter = useCallback((tagId: number) => {
+    setSelectedTags((prev) => prev.filter((id) => id !== tagId))
+  }, [])
+
+  // Sort documents (use tag-filtered docs if tag filter is active)
+  const docsToSort = effectiveTagFilteredDocs ?? documents
   const sortedDocuments = useMemo(() => {
-    const sorted = [...documents]
+    const sorted = [...docsToSort]
     sorted.sort((a: DocumentDto, b: DocumentDto) => {
       switch (sortBy) {
         case 'name':
@@ -70,7 +121,7 @@ export function ProjectPage() {
       }
     })
     return sorted
-  }, [documents, sortBy])
+  }, [docsToSort, sortBy])
 
   // Set page title
   useEffect(() => {
@@ -183,8 +234,39 @@ export function ProjectPage() {
               onSortChange={setSortBy}
               viewMode={documentViewMode}
               onViewModeChange={setDocumentViewMode}
+              selectedTagIds={selectedTags}
+              tagCloud={tagCloud}
+              onTagSelectionChange={handleTagSelectionChange}
             />
           </div>
+          {/* Active tag filter badges */}
+          {selectedTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b px-6 py-2">
+              <span className="text-xs text-muted-foreground mr-1">Filtered by:</span>
+              {selectedTags.map((tagId) => {
+                const tag = tagCloud.find((t) => t.id === tagId)
+                if (!tag) return null
+                return (
+                  <Badge key={tagId} variant="secondary" className="gap-1 pr-1">
+                    <span
+                      className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: tag.color || '#6b7280' }}
+                    />
+                    {tag.name}
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="ml-1 size-4 rounded-full"
+                      onClick={() => handleRemoveTagFilter(tagId)}
+                      aria-label={`Remove ${tag.name} filter`}
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  </Badge>
+                )
+              })}
+            </div>
+          )}
           <Separator />
           <div className="flex-1 p-4">
             <DropZone projectId={projectId} folderId={selectedFolderId ?? rootFolderId ?? 0}>
@@ -192,6 +274,7 @@ export function ProjectPage() {
                 documents={sortedDocuments}
                 onDeleteDocument={handleDeleteDocument}
                 viewMode={documentViewMode}
+                documentTags={documentTags}
               />
             </DropZone>
           </div>

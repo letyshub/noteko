@@ -156,11 +156,27 @@ let uiStoreState = {
   setCurrentPageTitle: mockSetCurrentPageTitle,
 }
 
+const tagStoreState = {
+  tags: [],
+  tagCloud: [],
+  loading: false,
+  error: null as string | null,
+  fetchTags: vi.fn(),
+  fetchTagCloud: vi.fn(),
+  createTag: vi.fn(),
+  updateTag: vi.fn(),
+  deleteTag: vi.fn(),
+  getDocumentTags: vi.fn().mockResolvedValue([]),
+  setDocumentTags: vi.fn(),
+  batchGetDocumentTags: vi.fn().mockResolvedValue({}),
+}
+
 vi.mock('@renderer/store', () => ({
   useProjectStore: (selector: any) => selector(projectStoreState),
   useFolderStore: (selector: any) => selector(folderStoreState),
   useDocumentStore: (selector: any) => selector(documentStoreState),
   useUIStore: (selector: any) => selector(uiStoreState),
+  useTagStore: (selector: any) => selector(tagStoreState),
 }))
 
 vi.mock('@renderer/store/project-store', () => ({

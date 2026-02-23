@@ -24,6 +24,9 @@ import type {
   QuizGenerationOptions,
   LogFilterInput,
   SearchFilterInput,
+  CreateTagInput,
+  UpdateTagInput,
+  SetDocumentTagsInput,
 } from '@shared/types'
 import {
   listProjects,
@@ -83,6 +86,16 @@ import {
   listRecentSearches,
   clearRecentSearches,
   deleteRecentSearch,
+  listTags,
+  createTag,
+  updateTag,
+  deleteTag,
+  getDocumentTags,
+  setDocumentTags,
+  batchGetDocumentTags,
+  getTagCloud,
+  suggestTags,
+  listDocumentsByTags,
 } from '@main/services'
 import { getMainWindow } from '@main/main-window'
 import {
@@ -1186,6 +1199,103 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess(undefined as void)
     } catch (error) {
       return createIpcError('SEARCH_RECENT_DELETE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Tags ─────────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.TAGS_LIST, async () => {
+    try {
+      const result = listTags()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('TAGS_LIST_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TAGS_CREATE, async (_event, input: CreateTagInput) => {
+    try {
+      const result = createTag(input)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('TAGS_CREATE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TAGS_UPDATE, async (_event, id: number, input: UpdateTagInput) => {
+    try {
+      const result = updateTag(id, input)
+      if (!result) {
+        return createIpcError('NOT_FOUND', `Tag ${id} not found`)
+      }
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('TAGS_UPDATE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TAGS_DELETE, async (_event, id: number) => {
+    try {
+      const result = deleteTag(id)
+      if (!result) {
+        return createIpcError('NOT_FOUND', `Tag ${id} not found`)
+      }
+      return createIpcSuccess({ affectedDocumentCount: result.affectedDocumentCount })
+    } catch (error) {
+      return createIpcError('TAGS_DELETE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DOCUMENT_TAGS_GET, async (_event, documentId: number) => {
+    try {
+      const result = getDocumentTags(documentId)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DOCUMENT_TAGS_GET_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DOCUMENT_TAGS_SET, async (_event, input: SetDocumentTagsInput) => {
+    try {
+      setDocumentTags(input.document_id, input.tag_ids)
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('DOCUMENT_TAGS_SET_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DOCUMENT_TAGS_BATCH_GET, async (_event, documentIds: number[]) => {
+    try {
+      const result = batchGetDocumentTags(documentIds)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DOCUMENT_TAGS_BATCH_GET_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TAGS_CLOUD, async () => {
+    try {
+      const result = getTagCloud()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('TAGS_CLOUD_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TAGS_SUGGEST, async (_event, query: string) => {
+    try {
+      const result = suggestTags(query)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('TAGS_SUGGEST_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DOCUMENTS_BY_TAGS, async (_event, tagIds: number[]) => {
+    try {
+      const result = listDocumentsByTags(tagIds)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('DOCUMENTS_BY_TAGS_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 }

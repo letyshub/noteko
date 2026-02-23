@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
 import { getDb } from '@main/database/connection'
-import { documents, documentContent, projects, folders } from '@main/database/schema'
+import { documents, documentContent, documentTags, projects, folders } from '@main/database/schema'
 import type { Document, DocumentContent } from '@main/database/schema'
 
 export const listDocumentsByProject = (projectId: number) => {
@@ -65,7 +65,9 @@ export const updateDocument = (id: number, data: { name?: string; folder_id?: nu
 }
 
 export const deleteDocument = (id: number) => {
-  // Delete associated content first (FK constraint)
+  // Delete junction table entries first (FK constraint order)
+  getDb().delete(documentTags).where(eq(documentTags.document_id, id)).run()
+  // Delete associated content
   getDb().delete(documentContent).where(eq(documentContent.document_id, id)).run()
   return getDb().delete(documents).where(eq(documents.id, id)).returning().get()
 }

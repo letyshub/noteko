@@ -1,3 +1,4 @@
+import { useEffect, useState, useCallback } from 'react'
 import { ArrowLeft, RotateCcw, FileWarning, ChevronRight } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@renderer/components/ui/button'
@@ -6,8 +7,10 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@renderer/
 import { DocumentMetadata } from '@renderer/components/documents/document-metadata'
 import { DocumentPreview } from '@renderer/components/documents/document-preview'
 import { AiActionsPanel } from '@renderer/components/ai/ai-actions-panel'
+import { TagSelector } from '@renderer/components/tags/tag-selector'
 import { isPreviewable } from '@renderer/components/documents/document-utils'
-import type { DocumentDetailDto, KeyTerm, SummaryStyle, QuizDto } from '@shared/types'
+import { useTagStore } from '@renderer/store'
+import type { DocumentDetailDto, KeyTerm, SummaryStyle, QuizDto, TagDto } from '@shared/types'
 
 interface DocumentViewerProps {
   document: DocumentDetailDto
@@ -65,6 +68,34 @@ export function DocumentViewer({
   const isFailed = document.processing_status === 'failed'
   const isNotProcessed = !content || (!content.raw_text && document.processing_status !== 'completed')
   const canPreview = isPreviewable(document.file_type)
+
+  // Tag state
+  const [documentTags, setDocumentTags] = useState<TagDto[]>([])
+  const allTags = useTagStore((s) => s.tags)
+  const fetchTags = useTagStore((s) => s.fetchTags)
+  const getDocumentTags = useTagStore((s) => s.getDocumentTags)
+  const setDocumentTagsApi = useTagStore((s) => s.setDocumentTags)
+
+  useEffect(() => {
+    fetchTags()
+    getDocumentTags(document.id).then(setDocumentTags)
+  }, [document.id, fetchTags, getDocumentTags])
+
+  const handleTagsChanged = useCallback(
+    async (tagIds: number[]) => {
+      await setDocumentTagsApi(document.id, tagIds)
+      const updated = await getDocumentTags(document.id)
+      setDocumentTags(updated)
+    },
+    [document.id, setDocumentTagsApi, getDocumentTags],
+  )
+
+  const tagsSection = (
+    <div>
+      <h3 className="text-sm font-semibold mb-2">Tags</h3>
+      <TagSelector tags={documentTags} allTags={allTags} onTagsChanged={handleTagsChanged} />
+    </div>
+  )
 
   const aiPanel = (
     <AiActionsPanel
@@ -134,6 +165,9 @@ export function DocumentViewer({
                 {/* Metadata header */}
                 <DocumentMetadata document={document} />
 
+                {/* Tags */}
+                {tagsSection}
+
                 {/* Failed status: retry button */}
                 {isFailed && (
                   <div className="flex items-center gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-3">
@@ -181,6 +215,9 @@ export function DocumentViewer({
         <div className="flex flex-1 flex-col gap-4 p-6">
           {/* Metadata header */}
           <DocumentMetadata document={document} />
+
+          {/* Tags */}
+          {tagsSection}
 
           {/* Failed status: retry button */}
           {isFailed && (

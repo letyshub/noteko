@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { House, BarChart3, Activity, Settings, Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { TagSidebarSection } from '@renderer/components/tags/tag-sidebar-section'
+import { useTagStore } from '@renderer/store'
 import {
   Sidebar,
   SidebarContent,
@@ -41,6 +43,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation()
   const projects = useProjectStore((s) => s.projects)
   const fetchProjects = useProjectStore((s) => s.fetchProjects)
+  const tagCloud = useTagStore((s) => s.tagCloud)
+  const fetchTagCloud = useTagStore((s) => s.fetchTagCloud)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editProject, setEditProject] = useState<ProjectDto | null>(null)
@@ -48,7 +52,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
   useEffect(() => {
     fetchProjects()
-  }, [fetchProjects])
+    fetchTagCloud()
+  }, [fetchProjects, fetchTagCloud])
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -118,6 +123,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             ))}
           </SidebarMenu>
         </SidebarGroup>
+
+        <TagSidebarSection tagCloud={tagCloud} />
       </SidebarContent>
 
       <SidebarFooter>
