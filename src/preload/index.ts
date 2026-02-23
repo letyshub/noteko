@@ -83,6 +83,16 @@ const electronAPI: ElectronAPI = {
   'settings:set': (key, value) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, key, value),
   'settings:get-all': () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_ALL),
 
+  // Logs
+  'db:logs:list': (filter) => ipcRenderer.invoke(IPC_CHANNELS.LOGS_LIST, filter),
+  'db:logs:stats': () => ipcRenderer.invoke(IPC_CHANNELS.LOGS_STATS),
+  'db:logs:clear': () => ipcRenderer.invoke(IPC_CHANNELS.LOGS_CLEAR),
+  'db:logs:report-error': (level, message, context) =>
+    ipcRenderer.invoke(IPC_CHANNELS.LOGS_REPORT_ERROR, level, message, context),
+
+  // CSV Export
+  'file:export-csv': (data, defaultFilename) => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXPORT_CSV, data, defaultFilename),
+
   // Event subscriptions (main -> renderer push)
   on: (channel, callback) => {
     const listener = (_event: IpcRendererEvent, data: unknown) =>

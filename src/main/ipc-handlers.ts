@@ -22,6 +22,7 @@ import type {
   SummaryStyle,
   KeyTerm,
   QuizGenerationOptions,
+  LogFilterInput,
 } from '@shared/types'
 import {
   listProjects,
@@ -59,6 +60,10 @@ import {
   openFilePickerDialog,
   deleteFileFromStorage,
   exportHistoryAsJson,
+  exportAsCsv,
+  listLogs,
+  getLogStatistics,
+  clearLogs,
   queueDocument,
   retryDocument,
   checkHealth,
@@ -1063,6 +1068,72 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess(result)
     } catch (error) {
       return createIpcError('SETTINGS_GET_ALL_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Logs ───────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.LOGS_LIST, async (_event, filter: LogFilterInput) => {
+    try {
+      const result = listLogs(filter)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('LOGS_LIST_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LOGS_STATS, async () => {
+    try {
+      const result = getLogStatistics()
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('LOGS_STATS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LOGS_CLEAR, async () => {
+    try {
+      clearLogs()
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('LOGS_CLEAR_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.LOGS_REPORT_ERROR,
+    async (_event, level: string, message: string, context?: Record<string, unknown>) => {
+      try {
+        const { getDb } = await import('@main/database/connection')
+        const { appLogs } = await import('@main/database/schema')
+        const { parseCategory } = await import('@main/services/log-service')
+
+        const db = getDb()
+        const category = parseCategory(message)
+
+        db.insert(appLogs)
+          .values({
+            level,
+            message,
+            category,
+            context: context ?? null,
+            created_at: new Date().toISOString(),
+          })
+          .run()
+
+        return createIpcSuccess(undefined as void)
+      } catch (error) {
+        return createIpcError('LOGS_REPORT_ERROR', error instanceof Error ? error.message : 'Unknown error')
+      }
+    },
+  )
+
+  // ─── CSV Export ─────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.FILE_EXPORT_CSV, async (_event, data: string, defaultFilename: string) => {
+    try {
+      const result = await exportAsCsv(data, defaultFilename)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('FILE_EXPORT_CSV_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 }

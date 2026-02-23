@@ -42,6 +42,10 @@ import type {
   OllamaHealthResult,
   SummaryStyle,
   QuizGenerationOptions,
+  LogFilterInput,
+  LogListResultDto,
+  LogStatisticsDto,
+  LogStreamEvent,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -117,6 +121,15 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   SETTINGS_GET_ALL: 'settings:get-all',
+
+  // Logs
+  LOGS_LIST: 'db:logs:list',
+  LOGS_STATS: 'db:logs:stats',
+  LOGS_CLEAR: 'db:logs:clear',
+  LOGS_REPORT_ERROR: 'db:logs:report-error',
+
+  // CSV Export
+  FILE_EXPORT_CSV: 'file:export-csv',
 
   // Events (push from main to renderer)
   PROGRESS: 'app:progress',
@@ -277,6 +290,18 @@ export interface IpcChannelMap {
   'settings:get': { args: [key: string]; response: IpcResult<string | null> }
   'settings:set': { args: [key: string, value: string]; response: IpcResult<void> }
   'settings:get-all': { args: []; response: IpcResult<Record<string, string>> }
+
+  // Logs
+  'db:logs:list': { args: [filter: LogFilterInput]; response: IpcResult<LogListResultDto> }
+  'db:logs:stats': { args: []; response: IpcResult<LogStatisticsDto> }
+  'db:logs:clear': { args: []; response: IpcResult<void> }
+  'db:logs:report-error': {
+    args: [level: string, message: string, context?: Record<string, unknown>]
+    response: IpcResult<void>
+  }
+
+  // CSV Export
+  'file:export-csv': { args: [data: string, defaultFilename: string]; response: IpcResult<string | null> }
 }
 
 // ---------------------------------------------------------------------------
@@ -294,6 +319,7 @@ export interface ProgressEvent {
 export interface IpcEventMap {
   'app:progress': ProgressEvent
   'ai:stream': AiStreamEvent
+  'logs:new': LogStreamEvent
 }
 
 // ---------------------------------------------------------------------------

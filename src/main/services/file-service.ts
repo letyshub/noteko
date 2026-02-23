@@ -161,3 +161,25 @@ export const exportHistoryAsJson = async (data: string, defaultFilename: string)
   log.info(`Exported JSON data to: ${result.filePath}`)
   return result.filePath
 }
+
+/**
+ * Export data as a CSV file using a save dialog.
+ * Receives a pre-serialized CSV string from the renderer,
+ * prompts the user for a save location, and writes the data.
+ *
+ * @returns The file path where data was saved, or null if cancelled.
+ */
+export const exportAsCsv = async (data: string, defaultFilename: string): Promise<string | null> => {
+  const result = await dialog.showSaveDialog({
+    defaultPath: defaultFilename,
+    filters: [{ name: 'CSV', extensions: ['csv'] }],
+  })
+
+  if (result.canceled || !result.filePath) {
+    return null
+  }
+
+  fs.writeFileSync(result.filePath, data, 'utf-8')
+  log.info(`Exported CSV data to: ${result.filePath}`)
+  return result.filePath
+}

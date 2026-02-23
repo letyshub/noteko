@@ -109,6 +109,7 @@ const createTables = (sqlite: Database.Database): void => {
       level TEXT NOT NULL,
       message TEXT NOT NULL,
       context TEXT,
+      category TEXT,
       created_at TEXT NOT NULL
     );
   `)

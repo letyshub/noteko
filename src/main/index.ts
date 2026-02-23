@@ -7,6 +7,7 @@ import { initializeDatabase, closeDatabase } from '@main/database'
 import { registerIpcHandlers } from '@main/ipc-handlers'
 import { setMainWindow } from '@main/main-window'
 import { resetStaleProcessingStatus, checkHealth } from '@main/services'
+import { registerLogTransport } from '@main/log-transport'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -88,6 +89,15 @@ const createWindow = (): void => {
   }
 }
 
+// Global error handlers — captures uncaught exceptions and unhandled rejections.
+// Once the log transport is registered, these will be persisted to app_logs.
+process.on('uncaughtException', (error) => {
+  log.error('[global] Uncaught exception:', error.message, { stack: error.stack })
+})
+process.on('unhandledRejection', (reason) => {
+  log.error('[global] Unhandled rejection:', String(reason))
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.on('ready', async () => {
@@ -134,6 +144,7 @@ app.on('ready', async () => {
 
     initializeDatabase()
     resetStaleProcessingStatus()
+    registerLogTransport()
 
     // Fire-and-forget Ollama health check on startup (non-blocking)
     checkHealth()

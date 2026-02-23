@@ -32,10 +32,15 @@ vi.mock('node:fs/promises', () => ({
   readFile: (...args: unknown[]) => mockReadFile(...args),
 }))
 
-// Mock pdf-parse
-const mockPdfParse = vi.fn()
+// Mock pdf-parse v2 (class-based API)
+const mockGetText = vi.fn()
 vi.mock('pdf-parse', () => ({
-  default: (...args: unknown[]) => mockPdfParse(...args),
+  PDFParse: class {
+    constructor() {
+      /* noop */
+    }
+    getText = () => mockGetText()
+  },
 }))
 
 // Mock mammoth
@@ -106,9 +111,8 @@ describe('parsing-service', () => {
 
   describe('parseDocument - PDF', () => {
     it('should extract text from PDF, store raw_text, and set status to completed', async () => {
-      const pdfBuffer = Buffer.from('fake pdf content')
-      mockReadFile.mockResolvedValue(pdfBuffer)
-      mockPdfParse.mockResolvedValue({ text: 'Extracted PDF text content' })
+      mockReadFile.mockResolvedValue(Buffer.from('fake pdf content'))
+      mockGetText.mockResolvedValue({ text: 'Extracted PDF text content' })
       mockGetDocument.mockReturnValue({
         id: 1,
         file_path: '/mock/path/doc.pdf',
@@ -122,8 +126,8 @@ describe('parsing-service', () => {
 
       // Should read the file
       expect(mockReadFile).toHaveBeenCalledWith('/mock/path/doc.pdf')
-      // Should call pdf-parse with the buffer
-      expect(mockPdfParse).toHaveBeenCalledWith(pdfBuffer)
+      // Should call PDFParse getText()
+      expect(mockGetText).toHaveBeenCalled()
       // Should save the extracted text
       expect(mockSaveDocumentContent).toHaveBeenCalledWith({
         document_id: 1,
@@ -207,7 +211,7 @@ describe('parsing-service', () => {
       // Should NOT attempt to read the file
       expect(mockReadFile).not.toHaveBeenCalled()
       // Should NOT call pdf-parse or mammoth
-      expect(mockPdfParse).not.toHaveBeenCalled()
+      expect(mockGetText).not.toHaveBeenCalled()
       expect(mockExtractRawText).not.toHaveBeenCalled()
       // Should update status to unsupported
       expect(mockUpdate).toHaveBeenCalled()
@@ -263,7 +267,7 @@ describe('parsing-service', () => {
         processing_status: 'pending',
       })
       mockReadFile.mockResolvedValue(Buffer.from('corrupt'))
-      mockPdfParse.mockRejectedValue(new Error('Invalid PDF structure'))
+      mockGetText.mockRejectedValue(new Error('Invalid PDF structure'))
 
       const { parseDocument } = await import('@main/services/parsing-service')
       await parseDocument(6)

@@ -7,7 +7,7 @@
 
 import type { SummaryStyle } from '@shared/types'
 
-export const DEFAULT_OLLAMA_MODEL = 'llama3'
+export const DEFAULT_OLLAMA_MODEL = 'llama3.2'
 
 /** Max characters of raw text to send to the LLM. */
 export const RAW_TEXT_MAX_LENGTH = 8_000

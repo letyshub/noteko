@@ -296,6 +296,58 @@ export interface ProjectWithCountDto {
 }
 
 // ---------------------------------------------------------------------------
+// Logs
+// ---------------------------------------------------------------------------
+
+/** Log category derived from message prefix. */
+export type LogCategory = 'app' | 'document' | 'ai' | 'quiz'
+
+/** Supported date range filters for log queries. */
+export type LogDateRange = '24h' | '7d' | '30d' | 'all'
+
+/** A single app log entry for display in the log viewer. */
+export interface AppLogDto {
+  id: number
+  level: string
+  message: string
+  category: string | null
+  context: Record<string, unknown> | null
+  created_at: string
+}
+
+/** Filter input for the listLogs query. */
+export interface LogFilterInput {
+  level?: string
+  category?: string
+  search?: string
+  dateRange?: LogDateRange
+  page?: number
+  limit?: number
+}
+
+/** Paginated result from listLogs. */
+export interface LogListResultDto {
+  logs: AppLogDto[]
+  total: number
+  hasMore: boolean
+}
+
+/** Aggregate statistics for the log viewer dashboard. */
+export interface LogStatisticsDto {
+  total: number
+  errors: number
+  warnings: number
+  infos: number
+  debugs: number
+  trend: Array<{ date: string; errorCount: number }>
+}
+
+/** Event payload for real-time log streaming from main to renderer. */
+export interface LogStreamEvent {
+  log: AppLogDto
+}
+
+// ---------------------------------------------------------------------------
 // File Upload
 // ---------------------------------------------------------------------------
 

@@ -73,6 +73,43 @@ const runMigrations = (db: Database.Database): void => {
       log.info('[migration] Added document_content.summary_style')
     }
   }
+
+  if (tableExists('app_logs')) {
+    if (!hasColumn('app_logs', 'category')) {
+      db.exec('ALTER TABLE app_logs ADD COLUMN category TEXT')
+      log.info('[migration] Added app_logs.category')
+    }
+  }
+
+  if (tableExists('quizzes')) {
+    if (!hasColumn('quizzes', 'question_count')) {
+      db.exec('ALTER TABLE quizzes ADD COLUMN question_count INTEGER')
+      log.info('[migration] Added quizzes.question_count')
+    }
+    if (!hasColumn('quizzes', 'difficulty_level')) {
+      db.exec('ALTER TABLE quizzes ADD COLUMN difficulty_level TEXT')
+      log.info('[migration] Added quizzes.difficulty_level')
+    }
+    if (!hasColumn('quizzes', 'question_types')) {
+      db.exec('ALTER TABLE quizzes ADD COLUMN question_types TEXT')
+      log.info('[migration] Added quizzes.question_types')
+    }
+  }
+
+  if (tableExists('quiz_questions')) {
+    if (!hasColumn('quiz_questions', 'type')) {
+      db.exec('ALTER TABLE quiz_questions ADD COLUMN type TEXT')
+      log.info('[migration] Added quiz_questions.type')
+    }
+    if (!hasColumn('quiz_questions', 'difficulty')) {
+      db.exec('ALTER TABLE quiz_questions ADD COLUMN difficulty TEXT')
+      log.info('[migration] Added quiz_questions.difficulty')
+    }
+    if (!hasColumn('quiz_questions', 'explanation')) {
+      db.exec('ALTER TABLE quiz_questions ADD COLUMN explanation TEXT')
+      log.info('[migration] Added quiz_questions.explanation')
+    }
+  }
 }
 
 /**

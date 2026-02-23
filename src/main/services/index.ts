@@ -46,6 +46,9 @@ export {
   getProjectsWithCounts,
 } from './dashboard-service'
 
+// Log operations
+export { listLogs, getLogStatistics, clearLogs, parseCategory, CATEGORY_PREFIX_MAP } from './log-service'
+
 // File operations
 export {
   validateFile,
@@ -53,6 +56,7 @@ export {
   openFilePickerDialog,
   deleteFileFromStorage,
   exportHistoryAsJson,
+  exportAsCsv,
 } from './file-service'
 
 // Parsing operations

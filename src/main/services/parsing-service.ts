@@ -44,10 +44,11 @@ function updateProcessingStatus(id: number, status: ProcessingStatus): void {
  * Extract text from a PDF file using pdf-parse.
  */
 async function parsePdf(filePath: string): Promise<string> {
-  const pdfParse = (await import('pdf-parse')).default
+  const { PDFParse } = await import('pdf-parse')
   const buffer = await fs.readFile(filePath)
-  const data = await pdfParse(buffer)
-  return data.text
+  const parser = new PDFParse({ data: buffer })
+  const result = await parser.getText()
+  return result.text
 }
 
 /**

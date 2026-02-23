@@ -5,6 +5,7 @@ export const appLogs = sqliteTable('app_logs', {
   level: text('level').notNull(),
   message: text('message').notNull(),
   context: text('context', { mode: 'json' }).$type<Record<string, unknown>>(),
+  category: text('category'),
   created_at: text('created_at')
     .notNull()
     .$default(() => new Date().toISOString()),
