@@ -57,6 +57,7 @@ export {
   deleteFileFromStorage,
   exportHistoryAsJson,
   exportAsCsv,
+  getStorageBase,
 } from './file-service'
 
 // Parsing operations

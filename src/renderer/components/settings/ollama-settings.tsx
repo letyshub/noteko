@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ExternalLink, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select'
 import type { OllamaModel } from '@shared/types'
 
 interface OllamaSettingsProps {
@@ -81,6 +83,7 @@ export function OllamaSettings({ settings }: OllamaSettingsProps) {
       if (selectedModel) {
         await window.electronAPI['settings:set']('ollama.model', selectedModel)
       }
+      toast.success('Settings saved')
     } finally {
       setSaving(false)
     }
@@ -119,22 +122,26 @@ export function OllamaSettings({ settings }: OllamaSettingsProps) {
       {/* Model Selection */}
       <div className="space-y-2">
         <Label htmlFor="ollama-model">Model</Label>
-        <select
-          id="ollama-model"
+        <Select
           value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          onValueChange={(value) => setSelectedModel(value)}
           disabled={loadingModels || models.length === 0}
         >
-          <option value="">
-            {loadingModels ? 'Loading models...' : models.length === 0 ? 'No models available' : 'Select a model'}
-          </option>
-          {models.map((model) => (
-            <option key={model.name} value={model.name}>
-              {model.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="ollama-model" className="w-full">
+            <SelectValue
+              placeholder={
+                loadingModels ? 'Loading models...' : models.length === 0 ? 'No models available' : 'Select a model'
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {models.map((model) => (
+              <SelectItem key={model.name} value={model.name}>
+                {model.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Action Buttons */}

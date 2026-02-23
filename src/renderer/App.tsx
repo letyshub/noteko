@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Routes, Route } from 'react-router'
 import { Search } from 'lucide-react'
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@renderer/components/ui/sidebar'
@@ -8,8 +8,10 @@ import { Toaster } from '@renderer/components/ui/sonner'
 import { AppSidebar } from '@renderer/components/layout/app-sidebar'
 import { ErrorBoundary } from '@renderer/components/layout/error-boundary'
 import { SearchDialog } from '@renderer/components/search/search-dialog'
+import { OnboardingWizard } from '@renderer/components/onboarding/onboarding-wizard'
 import { useTheme } from '@renderer/hooks/use-theme'
 import { useUIStore } from '@renderer/store/ui-store'
+import { useSettingsStore } from '@renderer/store/settings-store'
 import { DashboardPage } from '@renderer/pages/dashboard-page'
 import { ProjectPage } from '@renderer/pages/project-page'
 import { DocumentPage } from '@renderer/pages/document-page'
@@ -21,6 +23,11 @@ import { SettingsPage } from '@renderer/pages/settings-page'
 
 export function App() {
   useTheme()
+
+  // Initialize settings store on app mount
+  useEffect(() => {
+    useSettingsStore.getState().loadSettings()
+  }, [])
 
   const sidebarOpen = useUIStore((s) => s.sidebarOpen)
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen)
@@ -73,6 +80,7 @@ export function App() {
         </SidebarInset>
       </SidebarProvider>
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
+      <OnboardingWizard />
       <Toaster />
     </>
   )

@@ -30,7 +30,7 @@ const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', '
  * - Production: `userData/files/`
  * - Development: `cwd()/files/`
  */
-const getStorageBase = (): string => {
+export const getStorageBase = (): string => {
   if (app.isPackaged) {
     return path.join(app.getPath('userData'), 'files')
   }

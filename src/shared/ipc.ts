@@ -158,6 +158,10 @@ export const IPC_CHANNELS = {
   TAGS_SUGGEST: 'db:tags:suggest',
   DOCUMENTS_BY_TAGS: 'db:documents:by-tags',
 
+  // App
+  APP_GET_STORAGE_PATH: 'app:get-storage-path',
+  APP_CLEAR_CACHE: 'app:clear-cache',
+
   // Events (push from main to renderer)
   PROGRESS: 'app:progress',
 } as const
@@ -336,6 +340,10 @@ export interface IpcChannelMap {
 
   // CSV Export
   'file:export-csv': { args: [data: string, defaultFilename: string]; response: IpcResult<string | null> }
+
+  // App
+  'app:get-storage-path': { args: []; response: IpcResult<string> }
+  'app:clear-cache': { args: []; response: IpcResult<{ deletedCount: number }> }
 
   // Tags
   'db:tags:list': { args: []; response: IpcResult<TagDto[]> }

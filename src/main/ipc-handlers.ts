@@ -96,6 +96,7 @@ import {
   getTagCloud,
   suggestTags,
   listDocumentsByTags,
+  getStorageBase,
 } from '@main/services'
 import { getMainWindow } from '@main/main-window'
 import {
@@ -1296,6 +1297,38 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess(result)
     } catch (error) {
       return createIpcError('DOCUMENTS_BY_TAGS_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── App ──────────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.APP_GET_STORAGE_PATH, async () => {
+    try {
+      const storagePath = getStorageBase()
+      return createIpcSuccess(storagePath)
+    } catch (error) {
+      return createIpcError('APP_GET_STORAGE_PATH_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.APP_CLEAR_CACHE, async () => {
+    try {
+      const { getDb } = await import('@main/database/connection')
+      const { documentContent } = await import('@main/database/schema')
+
+      const db = getDb()
+      const result = db
+        .update(documentContent)
+        .set({
+          summary: null,
+          key_points: null,
+          key_terms: null,
+          summary_style: null,
+        })
+        .run()
+
+      return createIpcSuccess({ deletedCount: result.changes })
+    } catch (error) {
+      return createIpcError('APP_CLEAR_CACHE_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 }

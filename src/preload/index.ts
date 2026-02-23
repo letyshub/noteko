@@ -113,6 +113,10 @@ const electronAPI: ElectronAPI = {
   'db:tags:suggest': (query) => ipcRenderer.invoke(IPC_CHANNELS.TAGS_SUGGEST, query),
   'db:documents:by-tags': (tagIds) => ipcRenderer.invoke(IPC_CHANNELS.DOCUMENTS_BY_TAGS, tagIds),
 
+  // App
+  'app:get-storage-path': () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_STORAGE_PATH),
+  'app:clear-cache': () => ipcRenderer.invoke(IPC_CHANNELS.APP_CLEAR_CACHE),
+
   // Event subscriptions (main -> renderer push)
   on: (channel, callback) => {
     const listener = (_event: IpcRendererEvent, data: unknown) =>

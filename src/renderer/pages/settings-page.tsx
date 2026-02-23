@@ -1,20 +1,32 @@
 import { useEffect } from 'react'
-import { Bot, Settings } from 'lucide-react'
-import { Separator } from '@renderer/components/ui/separator'
+import { Settings, Palette, Settings2, Bot, HardDrive } from 'lucide-react'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
+import { AppearanceSettings } from '@renderer/components/settings/appearance-settings'
+import { GeneralSettings } from '@renderer/components/settings/general-settings'
 import { OllamaSettings } from '@renderer/components/settings/ollama-settings'
+import { StorageSettings } from '@renderer/components/settings/storage-settings'
 import { useUIStore } from '@renderer/store/ui-store'
+import { useProjectStore } from '@renderer/store'
 import { useIpc } from '@renderer/hooks/use-ipc'
 
 export function SettingsPage() {
   const setCurrentPageTitle = useUIStore((s) => s.setCurrentPageTitle)
+  const fetchProjects = useProjectStore((s) => s.fetchProjects)
 
   useEffect(() => {
     setCurrentPageTitle('Settings')
   }, [setCurrentPageTitle])
 
+  // Load projects on mount for the General tab
+  useEffect(() => {
+    fetchProjects()
+  }, [fetchProjects])
+
   // Load all settings on mount
   const { data: settings, loading } = useIpc(() => window.electronAPI['settings:get-all'](), [])
+
+  const resolvedSettings = settings ?? {}
 
   return (
     <div className="flex flex-1 flex-col">
@@ -26,32 +38,46 @@ export function SettingsPage() {
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="mx-auto max-w-2xl space-y-8 p-6">
-          {/* AI Integration - Ollama Section */}
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Bot className="h-5 w-5 text-muted-foreground" />
-              <h2 className="text-lg font-semibold">AI Integration - Ollama</h2>
-            </div>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Connect to a local Ollama instance for AI-powered document summarization and key point extraction.
-            </p>
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Loading settings...</p>
-            ) : (
-              <OllamaSettings settings={settings ?? {}} />
-            )}
-          </section>
+        <div className="mx-auto max-w-2xl p-6">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading settings...</p>
+          ) : (
+            <Tabs defaultValue="appearance">
+              <TabsList className="w-full">
+                <TabsTrigger value="appearance">
+                  <Palette className="mr-1.5 h-4 w-4" />
+                  Appearance
+                </TabsTrigger>
+                <TabsTrigger value="general">
+                  <Settings2 className="mr-1.5 h-4 w-4" />
+                  General
+                </TabsTrigger>
+                <TabsTrigger value="ollama">
+                  <Bot className="mr-1.5 h-4 w-4" />
+                  Ollama
+                </TabsTrigger>
+                <TabsTrigger value="storage">
+                  <HardDrive className="mr-1.5 h-4 w-4" />
+                  Storage
+                </TabsTrigger>
+              </TabsList>
 
-          <Separator />
-
-          {/* Future sections placeholder */}
-          <section>
-            <h2 className="text-lg font-semibold mb-2">Appearance</h2>
-            <p className="text-sm text-muted-foreground">
-              Theme and display preferences will appear here in a future update.
-            </p>
-          </section>
+              <div className="mt-6">
+                <TabsContent value="appearance">
+                  <AppearanceSettings />
+                </TabsContent>
+                <TabsContent value="general">
+                  <GeneralSettings settings={resolvedSettings} />
+                </TabsContent>
+                <TabsContent value="ollama">
+                  <OllamaSettings settings={resolvedSettings} />
+                </TabsContent>
+                <TabsContent value="storage">
+                  <StorageSettings />
+                </TabsContent>
+              </div>
+            </Tabs>
+          )}
         </div>
       </ScrollArea>
     </div>

@@ -5,8 +5,10 @@
  * Settings are stored as key-value text pairs with automatic timestamps.
  *
  * Known settings keys:
- *   - ollama.url   - Ollama server URL
- *   - ollama.model - Default Ollama model for AI operations
+ *   - ollama.url              - Ollama server URL
+ *   - ollama.model            - Default Ollama model for AI operations
+ *   - general.defaultProject  - Default project ID to select on app launch
+ *   - onboarding.completed    - Whether the user has completed onboarding ('true'/'false')
  *
  * Exported functions:
  *   - getSetting(key)         - get a single setting value
@@ -19,7 +21,7 @@ import { getDb } from '@main/database/connection'
 import { appSettings } from '@main/database/schema'
 
 // Allowlist of valid setting keys (C-2: prevent arbitrary key injection)
-const ALLOWED_SETTINGS = ['ollama.url', 'ollama.model'] as const
+const ALLOWED_SETTINGS = ['ollama.url', 'ollama.model', 'general.defaultProject', 'onboarding.completed'] as const
 type SettingKey = (typeof ALLOWED_SETTINGS)[number]
 
 function isAllowedKey(key: string): key is SettingKey {

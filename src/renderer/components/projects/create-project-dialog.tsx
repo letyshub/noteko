@@ -5,8 +5,7 @@ import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { useProjectStore } from '@renderer/store'
-
-const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899']
+import { PROJECT_COLORS } from '@renderer/lib/constants'
 
 interface CreateProjectDialogProps {
   open: boolean
@@ -16,7 +15,7 @@ interface CreateProjectDialogProps {
 export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [color, setColor] = useState(COLORS[4]) // default blue
+  const [color, setColor] = useState(PROJECT_COLORS[4]) // default blue
   const createProject = useProjectStore((s) => s.createProject)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,7 +28,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     })
     setName('')
     setDescription('')
-    setColor(COLORS[4])
+    setColor(PROJECT_COLORS[4])
     onOpenChange(false)
   }
 
@@ -63,7 +62,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
           <div className="space-y-2">
             <Label>Color</Label>
             <div className="flex gap-2">
-              {COLORS.map((c) => (
+              {PROJECT_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
