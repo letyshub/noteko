@@ -26,7 +26,8 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "npx playwright test"
+    "test:e2e": "npx playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": {
@@ -37,12 +38,14 @@
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",
     "@electron-forge/maker-deb": "^7.11.1",
+    "@electron-forge/maker-dmg": "^7.11.1",
     "@electron-forge/maker-rpm": "^7.11.1",
     "@electron-forge/maker-squirrel": "^7.11.1",
     "@electron-forge/maker-zip": "^7.11.1",
     "@electron-forge/plugin-auto-unpack-natives": "^7.11.1",
     "@electron-forge/plugin-fuses": "^7.11.1",
     "@electron-forge/plugin-vite": "^7.11.1",
+    "@electron-forge/publisher-github": "^7.11.1",
     "@electron/fuses": "^1.8.0",
     "@electron/rebuild": "^3.7.2",
     "@eslint/js": "^9.39.2",
@@ -86,6 +89,7 @@
     "drizzle-orm": "^0.45.1",
     "electron-log": "^5.4.3",
     "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.3.9",
     "geist": "^1.7.0",
     "lucide-react": "^0.575.0",
     "mammoth": "^1.11.0",

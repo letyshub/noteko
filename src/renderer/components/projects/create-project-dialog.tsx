@@ -15,7 +15,7 @@ interface CreateProjectDialogProps {
 export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [color, setColor] = useState(PROJECT_COLORS[4]) // default blue
+  const [color, setColor] = useState<(typeof PROJECT_COLORS)[number]>(PROJECT_COLORS[4]) // default blue
   const createProject = useProjectStore((s) => s.createProject)
 
   const handleSubmit = async (e: React.FormEvent) => {

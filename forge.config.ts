@@ -1,6 +1,7 @@
 import type { ForgeConfig } from '@electron-forge/shared-types'
 import { MakerSquirrel } from '@electron-forge/maker-squirrel'
 import { MakerZIP } from '@electron-forge/maker-zip'
+import { MakerDMG } from '@electron-forge/maker-dmg'
 import { MakerDeb } from '@electron-forge/maker-deb'
 import { MakerRpm } from '@electron-forge/maker-rpm'
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives'
@@ -13,7 +14,22 @@ const config: ForgeConfig = {
     asar: true,
   },
   rebuildConfig: {},
-  makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+  makers: [
+    new MakerSquirrel({}),
+    new MakerZIP({}, ['darwin', 'win32']),
+    new MakerDMG({}, ['darwin']),
+    new MakerRpm({}),
+    new MakerDeb({}),
+  ],
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: { owner: 'letyshub', name: 'noteko' },
+        prerelease: false,
+      },
+    },
+  ],
   plugins: [
     new AutoUnpackNativesPlugin({}),
     new VitePlugin({

@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
 import log from 'electron-log'
+import { autoUpdater } from 'electron-updater'
 import { initializeDatabase, closeDatabase } from '@main/database'
 import { registerIpcHandlers } from '@main/ipc-handlers'
 import { setMainWindow } from '@main/main-window'
@@ -160,6 +161,13 @@ app.on('ready', async () => {
       })
 
     createWindow()
+
+    // Auto-updater — dormant until code signing is configured.
+    // Set CODE_SIGNING_CONFIGURED=1 in the environment to activate.
+    autoUpdater.logger = log
+    if (app.isPackaged && process.env.CODE_SIGNING_CONFIGURED === '1') {
+      autoUpdater.checkForUpdatesAndNotify()
+    }
   } catch (error) {
     log.error('Failed to start application:', error)
     dialog.showErrorBox('Startup Error', 'Failed to initialize the database. The application will now exit.')

@@ -15,6 +15,7 @@ const externalPackages = [
   'mammoth',
   'tesseract.js',
   'electron-log',
+  'electron-updater',
 ]
 
 // https://vitejs.dev/config
