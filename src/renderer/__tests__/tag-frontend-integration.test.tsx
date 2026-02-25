@@ -22,12 +22,10 @@ const mockElectronAPI: Record<string, any> = {
   'db:document-tags:get': vi.fn().mockResolvedValue({ success: true, data: [] }),
   'db:document-tags:set': vi.fn().mockResolvedValue({ success: true }),
   'db:projects:list': vi.fn().mockResolvedValue({ success: true, data: [] }),
-  'db:folders:list': vi
-    .fn()
-    .mockResolvedValue({
-      success: true,
-      data: [{ id: 1, name: 'Root', project_id: 1, parent_folder_id: null, created_at: '2026-01-01' }],
-    }),
+  'db:folders:list': vi.fn().mockResolvedValue({
+    success: true,
+    data: [{ id: 1, name: 'Root', project_id: 1, parent_folder_id: null, created_at: '2026-01-01' }],
+  }),
   'db:documents:list-by-project': vi.fn().mockResolvedValue({ success: true, data: [] }),
   'db:documents:list-by-folder': vi.fn().mockResolvedValue({ success: true, data: [] }),
   'db:documents:delete': vi.fn().mockResolvedValue({ success: true }),

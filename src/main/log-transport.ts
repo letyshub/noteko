@@ -69,7 +69,7 @@ export function registerLogTransport(): void {
     } catch {
       // Do NOT re-log the error to prevent infinite loops.
       // Use console.error instead for diagnostics.
-       
+
       console.error('log-transport: failed to persist log to database')
     }
   }

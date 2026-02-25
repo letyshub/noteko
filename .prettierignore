@@ -6,3 +6,9 @@ node_modules/
 *.min.*
 package-lock.json
 .husky/
+.ai-sdlc/
+.claude/
+scripts/
+files/
+drizzle/
+coverage/
