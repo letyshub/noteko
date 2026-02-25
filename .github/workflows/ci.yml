@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - run: sudo apt-get install -y build-essential python3
+      - run: sudo apt-get update -y && sudo apt-get install -y build-essential python3
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
@@ -36,7 +36,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y build-essential python3 rpm
+        run: sudo apt-get update -y && sudo apt-get install -y build-essential python3 rpm
       - run: npm ci
       - run: npm rebuild better-sqlite3
       - run: npm run test
@@ -52,7 +52,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - run: sudo apt-get install -y build-essential python3 rpm
+      - run: sudo apt-get update -y && sudo apt-get install -y build-essential python3 rpm
       - run: npm ci
       - name: Run e2e tests with Xvfb
         run: |
