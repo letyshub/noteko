@@ -48,6 +48,13 @@ export const COMBINE_KEY_TERMS_PROMPT =
   'The following are key terms extracted from consecutive sections of a document. Merge them into a deduplicated list of 5-15 key terms with definitions. Remove duplicate terms, merge definitions where appropriate. Return ONLY a JSON array where each element has a "term" and "definition" field:\n\n{text}'
 
 // ---------------------------------------------------------------------------
+// Chat prompts
+// ---------------------------------------------------------------------------
+
+export const CHAT_SYSTEM_PROMPT =
+  'You are a helpful assistant that answers questions about the following document. Base your answers on the document content provided. If the answer is not found in the document, say so.\n\nDocument content:\n{text}'
+
+// ---------------------------------------------------------------------------
 // Quiz generation prompts
 // ---------------------------------------------------------------------------
 

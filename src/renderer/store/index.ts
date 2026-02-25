@@ -15,3 +15,5 @@ export type { UploadItem } from './upload-store'
 export { useTagStore } from './tag-store'
 
 export { useSettingsStore } from './settings-store'
+
+export { useChatStore } from './chat-store'

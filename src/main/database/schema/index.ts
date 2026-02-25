@@ -10,6 +10,8 @@ import { appLogs } from './app-logs'
 import { appSettings } from './app-settings'
 import { recentSearches } from './recent-searches'
 import { tags, documentTags } from './tags'
+import { chatConversations } from './chat-conversations'
+import { chatMessages } from './chat-messages'
 
 // Re-export all table definitions
 export {
@@ -25,6 +27,8 @@ export {
   recentSearches,
   tags,
   documentTags,
+  chatConversations,
+  chatMessages,
 }
 
 // Select model types (for reading from DB)
@@ -40,6 +44,8 @@ export type AppSetting = InferSelectModel<typeof appSettings>
 export type RecentSearch = InferSelectModel<typeof recentSearches>
 export type Tag = InferSelectModel<typeof tags>
 export type DocumentTag = InferSelectModel<typeof documentTags>
+export type ChatConversation = InferSelectModel<typeof chatConversations>
+export type ChatMessage = InferSelectModel<typeof chatMessages>
 
 // Insert model types (for writing to DB)
 export type NewProject = InferInsertModel<typeof projects>
@@ -54,3 +60,5 @@ export type NewAppSetting = InferInsertModel<typeof appSettings>
 export type NewRecentSearch = InferInsertModel<typeof recentSearches>
 export type NewTag = InferInsertModel<typeof tags>
 export type NewDocumentTag = InferInsertModel<typeof documentTags>
+export type NewChatConversation = InferInsertModel<typeof chatConversations>
+export type NewChatMessage = InferInsertModel<typeof chatMessages>

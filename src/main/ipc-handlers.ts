@@ -27,6 +27,7 @@ import type {
   CreateTagInput,
   UpdateTagInput,
   SetDocumentTagsInput,
+  AiChatInput,
 } from '@shared/types'
 import {
   listProjects,
@@ -97,6 +98,12 @@ import {
   suggestTags,
   listDocumentsByTags,
   getStorageBase,
+  chat,
+  getOrCreateConversation,
+  addMessage,
+  listMessages,
+  deleteConversation,
+  CHAT_SYSTEM_PROMPT,
 } from '@main/services'
 import { getMainWindow } from '@main/main-window'
 import {
@@ -1060,6 +1067,136 @@ export function registerIpcHandlers(): void {
       return createIpcSuccess(undefined as void)
     } catch (error) {
       return createIpcError('AI_GENERATE_QUIZ_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Chat (AI) ─────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.AI_CHAT, async (_event, input: AiChatInput) => {
+    try {
+      // 1. Get document with content
+      const result = getDocumentWithContent(input.documentId)
+      if (!result) {
+        return createIpcError('NOT_FOUND', `Document ${input.documentId} not found`)
+      }
+
+      const rawText = result.content?.raw_text
+      if (!rawText) {
+        return createIpcError('NO_CONTENT', 'Document has no extracted text for chat')
+      }
+
+      // 2. Get Ollama settings
+      const baseUrl = getSetting('ollama.url') ?? 'http://localhost:11434'
+      const model = getSetting('ollama.model') ?? DEFAULT_OLLAMA_MODEL
+
+      // 3. Get or create conversation
+      const conversationId = input.conversationId ?? getOrCreateConversation(input.documentId).id
+
+      // 4. Save user message to DB
+      addMessage(conversationId, 'user', input.message)
+
+      // 5. Build messages array: system prompt + history (last 10 pairs) + user message
+      const systemContent = CHAT_SYSTEM_PROMPT.replace('{text}', rawText.slice(0, RAW_TEXT_MAX_LENGTH))
+      const messages: Array<{ role: string; content: string }> = [{ role: 'system', content: systemContent }]
+
+      // Query DB for history and apply sliding window (last 10 pairs = 20 messages)
+      const historyMessages = listMessages(conversationId).slice(-20)
+      for (const msg of historyMessages) {
+        messages.push({ role: msg.role, content: msg.content })
+      }
+
+      // Add new user message
+      messages.push({ role: 'user', content: input.message })
+
+      // 6. Kick off chat() generator in background (fire-and-forget)
+      ;(async () => {
+        let fullText = ''
+        try {
+          log.info(`[ai] Starting chat for document ${input.documentId}, conversation ${conversationId}`)
+
+          const generator = chat({ url: baseUrl, model, messages })
+
+          for await (const chunk of generator) {
+            fullText += chunk
+            sendStreamEvent({
+              documentId: input.documentId,
+              operationType: 'chat',
+              chunk,
+              done: false,
+            })
+          }
+
+          // Save assistant's full response
+          addMessage(conversationId, 'assistant', fullText)
+
+          // Send done event with conversationId in metadata
+          sendStreamEvent({
+            documentId: input.documentId,
+            operationType: 'chat',
+            chunk: '',
+            done: true,
+            conversationId,
+          })
+
+          log.info(`[ai] Completed chat for document ${input.documentId}, conversation ${conversationId}`)
+        } catch (error) {
+          log.error(
+            `[ai] Error during chat for document ${input.documentId}:`,
+            error instanceof Error ? error.message : error,
+          )
+
+          sendStreamEvent({
+            documentId: input.documentId,
+            operationType: 'chat',
+            chunk: '',
+            done: true,
+            error: error instanceof Error ? error.message : 'Unknown error during chat',
+          })
+        }
+      })()
+
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('AI_CHAT_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  // ─── Chat (DB) ────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.DB_CHAT_CONVERSATIONS_GET, async (_event, documentId: number) => {
+    try {
+      const result = getOrCreateConversation(documentId)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('CHAT_CONVERSATIONS_GET_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.DB_CHAT_MESSAGES_LIST, async (_event, conversationId: number) => {
+    try {
+      const result = listMessages(conversationId)
+      return createIpcSuccess(result)
+    } catch (error) {
+      return createIpcError('CHAT_MESSAGES_LIST_ERROR', error instanceof Error ? error.message : 'Unknown error')
+    }
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.DB_CHAT_MESSAGES_CREATE,
+    async (_event, conversationId: number, role: string, content: string) => {
+      try {
+        const result = addMessage(conversationId, role, content)
+        return createIpcSuccess(result)
+      } catch (error) {
+        return createIpcError('CHAT_MESSAGES_CREATE_ERROR', error instanceof Error ? error.message : 'Unknown error')
+      }
+    },
+  )
+
+  ipcMain.handle(IPC_CHANNELS.DB_CHAT_CONVERSATIONS_DELETE, async (_event, conversationId: number) => {
+    try {
+      deleteConversation(conversationId)
+      return createIpcSuccess(undefined as void)
+    } catch (error) {
+      return createIpcError('CHAT_CONVERSATIONS_DELETE_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
 

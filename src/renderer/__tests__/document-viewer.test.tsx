@@ -89,6 +89,71 @@ vi.mock('@renderer/components/ui/separator', () => ({
   Separator: () => <hr data-testid="separator" />,
 }))
 
+vi.mock('@renderer/components/ui/tabs', () => ({
+  Tabs: ({ children, ...props }: any) => (
+    <div data-testid="tabs" {...props}>
+      {children}
+    </div>
+  ),
+  TabsList: ({ children, ...props }: any) => (
+    <div data-testid="tabs-list" {...props}>
+      {children}
+    </div>
+  ),
+  TabsTrigger: ({ children, value, ...props }: any) => (
+    <button data-testid={`tab-${value}`} {...props}>
+      {children}
+    </button>
+  ),
+  TabsContent: ({ children, value, ...props }: any) => (
+    <div data-testid={`tab-content-${value}`} {...props}>
+      {children}
+    </div>
+  ),
+}))
+
+vi.mock('@renderer/components/ai/chat-panel', () => ({
+  ChatPanel: ({ documentId, aiAvailable, hasRawText }: any) => (
+    <div
+      data-testid="chat-panel"
+      data-document-id={documentId}
+      data-ai-available={aiAvailable}
+      data-has-raw-text={hasRawText}
+    />
+  ),
+}))
+
+vi.mock('@renderer/store/chat-store', () => ({
+  useChatStore: Object.assign(
+    (selector: any) =>
+      selector({
+        messages: [],
+        streamingText: '',
+        isStreaming: false,
+        conversationId: null,
+        currentDocumentId: null,
+        error: null,
+        loadConversation: () => {},
+        sendMessage: () => {},
+        appendStreamChunk: () => {},
+        finalizeStream: () => {},
+        clearConversation: () => {},
+        setError: () => {},
+        reset: () => {},
+      }),
+    {
+      getState: () => ({
+        loadConversation: () => {},
+        reset: () => {},
+      }),
+    },
+  ),
+}))
+
+vi.mock('sonner', () => ({
+  toast: { success: () => {}, error: () => {} },
+}))
+
 // ---------------------------------------------------------------------------
 // Polyfills for jsdom (needed by react-pdf / react-resizable-panels)
 // ---------------------------------------------------------------------------

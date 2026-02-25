@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm'
 import { getDb } from '@main/database/connection'
 import { documents, documentContent, documentTags, projects, folders } from '@main/database/schema'
 import type { Document, DocumentContent } from '@main/database/schema'
+import { deleteConversationsByDocument } from './chat-service'
 
 export const listDocumentsByProject = (projectId: number) => {
   return getDb().select().from(documents).where(eq(documents.project_id, projectId)).all()
@@ -65,6 +66,8 @@ export const updateDocument = (id: number, data: { name?: string; folder_id?: nu
 }
 
 export const deleteDocument = (id: number) => {
+  // Delete chat conversations and messages first
+  deleteConversationsByDocument(id)
   // Delete junction table entries first (FK constraint order)
   getDb().delete(documentTags).where(eq(documentTags.document_id, id)).run()
   // Delete associated content

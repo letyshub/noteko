@@ -64,7 +64,7 @@ export {
 export { parseDocument, queueDocument, retryDocument, resetStaleProcessingStatus } from './parsing-service'
 
 // Ollama AI operations
-export { checkHealth, listModels, generate } from './ollama-service'
+export { checkHealth, listModels, generate, chat } from './ollama-service'
 
 // Settings operations
 export { getSetting, setSetting, getAllSettings } from './settings-service'
@@ -76,7 +76,12 @@ export { splitTextIntoChunks, runChunkedAiGeneration } from './chunking-service'
 export { parseQuizQuestions, validateQuizQuestion, buildQuizPrompt } from './quiz-generation-service'
 
 // AI prompt constants
-export { QUIZ_GENERATION_PROMPT, COMBINE_QUIZ_QUESTIONS_PROMPT, QUIZ_RETRY_PROMPT } from './ai-prompts'
+export {
+  QUIZ_GENERATION_PROMPT,
+  COMBINE_QUIZ_QUESTIONS_PROMPT,
+  QUIZ_RETRY_PROMPT,
+  CHAT_SYSTEM_PROMPT,
+} from './ai-prompts'
 
 // Search operations
 export {
@@ -86,6 +91,15 @@ export {
   clearRecentSearches,
   deleteRecentSearch,
 } from './search-service'
+
+// Chat operations
+export {
+  getOrCreateConversation,
+  addMessage,
+  listMessages,
+  deleteConversation,
+  deleteConversationsByDocument,
+} from './chat-service'
 
 // Tag operations
 export {

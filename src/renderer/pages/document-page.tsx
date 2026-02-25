@@ -118,6 +118,9 @@ export function DocumentPage() {
       // Only handle events for this document
       if (event.documentId !== Number(id)) return
 
+      // Chat events are handled by the ChatPanel, not the Analysis tab
+      if (event.operationType === 'chat') return
+
       if (event.error) {
         // Error: reset all streaming state
         setIsAiProcessing(false)

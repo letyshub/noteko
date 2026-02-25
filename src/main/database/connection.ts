@@ -205,6 +205,34 @@ const runMigrations = (db: Database.Database): void => {
     `)
     log.info('[migration] Created document_tags table')
   }
+
+  // Chat conversations table (one per document)
+  if (!tableExists('chat_conversations')) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_conversations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        document_id INTEGER NOT NULL UNIQUE REFERENCES documents(id),
+        title TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `)
+    log.info('[migration] Created chat_conversations table')
+  }
+
+  // Chat messages table (many per conversation)
+  if (!tableExists('chat_messages')) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        conversation_id INTEGER NOT NULL REFERENCES chat_conversations(id),
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `)
+    log.info('[migration] Created chat_messages table')
+  }
 }
 
 /**

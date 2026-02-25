@@ -54,6 +54,9 @@ import type {
   CreateTagInput,
   UpdateTagInput,
   SetDocumentTagsInput,
+  ChatConversationDto,
+  ChatMessageDto,
+  AiChatInput,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -124,6 +127,13 @@ export const IPC_CHANNELS = {
   AI_EXTRACT_KEY_POINTS: 'ai:extract-key-points',
   AI_EXTRACT_KEY_TERMS: 'ai:extract-key-terms',
   AI_GENERATE_QUIZ: 'ai:generate-quiz',
+  AI_CHAT: 'ai:chat',
+
+  // Chat (DB)
+  DB_CHAT_CONVERSATIONS_GET: 'db:chat:conversations:get',
+  DB_CHAT_MESSAGES_LIST: 'db:chat:messages:list',
+  DB_CHAT_MESSAGES_CREATE: 'db:chat:messages:create',
+  DB_CHAT_CONVERSATIONS_DELETE: 'db:chat:conversations:delete',
 
   // Settings
   SETTINGS_GET: 'settings:get',
@@ -316,6 +326,16 @@ export interface IpcChannelMap {
   'ai:extract-key-points': { args: [documentId: number]; response: IpcResult<void> }
   'ai:extract-key-terms': { args: [documentId: number]; response: IpcResult<void> }
   'ai:generate-quiz': { args: [documentId: number, options: QuizGenerationOptions]; response: IpcResult<void> }
+  'ai:chat': { args: [input: AiChatInput]; response: IpcResult<void> }
+
+  // Chat (DB)
+  'db:chat:conversations:get': { args: [documentId: number]; response: IpcResult<ChatConversationDto> }
+  'db:chat:messages:list': { args: [conversationId: number]; response: IpcResult<ChatMessageDto[]> }
+  'db:chat:messages:create': {
+    args: [conversationId: number, role: string, content: string]
+    response: IpcResult<ChatMessageDto>
+  }
+  'db:chat:conversations:delete': { args: [conversationId: number]; response: IpcResult<void> }
 
   // Settings
   'settings:get': { args: [key: string]; response: IpcResult<string | null> }

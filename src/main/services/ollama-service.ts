@@ -44,6 +44,13 @@ export interface GenerateOptions {
   baseUrl?: string
 }
 
+export interface ChatOptions {
+  url: string
+  model: string
+  messages: Array<{ role: string; content: string }>
+  signal?: AbortSignal
+}
+
 // ---------------------------------------------------------------------------
 // Health check
 // ---------------------------------------------------------------------------
@@ -262,6 +269,137 @@ export async function* generate(options: GenerateOptions): AsyncGenerator<string
   } catch (error) {
     log.error('[ollama-service] Stream interrupted:', error instanceof Error ? error.message : error)
     throw new Error('Stream interrupted: partial results discarded')
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Streaming chat
+// ---------------------------------------------------------------------------
+
+/**
+ * Stream chat completions from Ollama.
+ *
+ * Sends a POST request to /api/chat with streaming enabled and yields
+ * text chunks via an async generator. Reuses timeout, retry, and NDJSON
+ * stream parsing infrastructure from `generate()`.
+ *
+ * IMPORTANT: Unlike `generate()`, this function does NOT apply
+ * MAX_TEXT_LENGTH truncation -- messages are pre-constructed by the caller.
+ *
+ * @param options - Chat options (url, model, messages, optional signal)
+ * @yields Individual text tokens as they arrive
+ */
+export async function* chat(options: ChatOptions): AsyncGenerator<string> {
+  const { url, model, messages, signal: externalSignal } = options
+
+  const body = JSON.stringify({ model, messages, stream: true })
+
+  let lastError: unknown
+  let response: Response | null = null
+
+  // Retry loop for transient failures
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController()
+    const timeout = _testOverrides.generationTimeout
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+    // Forward external abort signal
+    if (externalSignal) {
+      externalSignal.addEventListener('abort', () => controller.abort(), { once: true })
+    }
+
+    try {
+      response = await fetch(`${url}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
+      // 4xx errors: do not retry
+      if (response.status >= 400 && response.status < 500) {
+        throw new Error(`Ollama API returned ${response.status}: ${response.statusText}`)
+      }
+
+      if (!response.ok) {
+        throw new Error(`Ollama API returned ${response.status}: ${response.statusText}`)
+      }
+
+      // Success -- break out of retry loop
+      break
+    } catch (error) {
+      clearTimeout(timeoutId)
+      lastError = error
+
+      // 4xx: do not retry
+      if (error instanceof Error && error.message.includes('returned 4')) {
+        throw error
+      }
+
+      if (attempt < MAX_RETRIES && isTransientError(error)) {
+        log.warn(`[ollama-service] Chat transient error (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...`)
+        continue
+      }
+
+      // Exhausted retries or non-transient error
+      throw error
+    }
+  }
+
+  if (!response || !response.body) {
+    throw lastError ?? new Error('No response received from Ollama')
+  }
+
+  // Read the streaming response (NDJSON with message.content field)
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+
+      // Process complete lines
+      const lines = buffer.split('\n')
+      // Keep the last (possibly incomplete) line in the buffer
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+
+        try {
+          const parsed = JSON.parse(trimmed) as { message: { content: string }; done: boolean }
+          yield parsed.message.content
+
+          if (parsed.done) {
+            return
+          }
+        } catch {
+          log.warn('[ollama-service] Failed to parse chat stream line:', trimmed)
+        }
+      }
+    }
+
+    // Process any remaining buffer content
+    if (buffer.trim()) {
+      try {
+        const parsed = JSON.parse(buffer.trim()) as { message: { content: string }; done: boolean }
+        yield parsed.message.content
+      } catch {
+        log.warn('[ollama-service] Failed to parse chat final buffer:', buffer)
+      }
+    }
+  } catch (error) {
+    log.error('[ollama-service] Chat stream interrupted:', error instanceof Error ? error.message : error)
+    throw new Error('Chat stream interrupted: partial results discarded')
   } finally {
     reader.releaseLock()
   }

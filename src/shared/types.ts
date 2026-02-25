@@ -234,13 +234,14 @@ export interface QuizGenerationOptions {
 /** Event payload streamed from main to renderer during AI operations. */
 export interface AiStreamEvent {
   documentId: number
-  operationType: 'summary' | 'key_points' | 'key_terms' | 'quiz'
+  operationType: 'summary' | 'key_points' | 'key_terms' | 'quiz' | 'chat'
   chunk: string
   done: boolean
   error?: string
   chunkIndex?: number
   totalChunks?: number
   quizId?: number
+  conversationId?: number
 }
 
 /** Model information returned by Ollama's /api/tags endpoint. */
@@ -254,6 +255,32 @@ export interface OllamaModel {
 export interface OllamaHealthResult {
   connected: boolean
   models: string[]
+}
+
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+
+export interface ChatConversationDto {
+  id: number
+  document_id: number
+  title: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatMessageDto {
+  id: number
+  conversation_id: number
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  created_at: string
+}
+
+export interface AiChatInput {
+  documentId: number
+  conversationId: number | null
+  message: string
 }
 
 // ---------------------------------------------------------------------------

@@ -1,12 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
-import { ArrowLeft, RotateCcw, FileWarning, ChevronRight } from 'lucide-react'
+import { ArrowLeft, RotateCcw, FileWarning, ChevronRight, Sparkles, MessageCircle } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@renderer/components/ui/button'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@renderer/components/ui/resizable'
 import { DocumentMetadata } from '@renderer/components/documents/document-metadata'
 import { DocumentPreview } from '@renderer/components/documents/document-preview'
 import { AiActionsPanel } from '@renderer/components/ai/ai-actions-panel'
+import { ChatPanel } from '@renderer/components/ai/chat-panel'
 import { TagSelector } from '@renderer/components/tags/tag-selector'
 import { isPreviewable } from '@renderer/components/documents/document-utils'
 import { useTagStore } from '@renderer/store'
@@ -158,14 +160,12 @@ export function DocumentViewer({
 
           <ResizableHandle withHandle />
 
-          {/* Right panel: Metadata, AI actions, extracted text */}
+          {/* Right panel: Metadata, Tags (fixed) + Tabs (flex) */}
           <ResizablePanel defaultSize={45} minSize={25}>
-            <ScrollArea className="h-full">
-              <div className="flex flex-col gap-4 p-4">
-                {/* Metadata header */}
+            <div className="flex h-full flex-col">
+              {/* Fixed: Metadata + Tags */}
+              <div className="flex flex-col gap-4 p-4 pb-2">
                 <DocumentMetadata document={document} />
-
-                {/* Tags */}
                 {tagsSection}
 
                 {/* Failed status: retry button */}
@@ -182,81 +182,127 @@ export function DocumentViewer({
                     </Button>
                   </div>
                 )}
+              </div>
 
-                {/* AI Actions Panel */}
-                {aiPanel}
+              {/* Tabs: Analysis + Chat */}
+              <Tabs defaultValue="analysis" className="flex flex-1 flex-col px-4 pb-4">
+                <TabsList className="w-full">
+                  <TabsTrigger value="analysis">
+                    <Sparkles className="mr-1.5 h-4 w-4" />
+                    Analysis
+                  </TabsTrigger>
+                  <TabsTrigger value="chat">
+                    <MessageCircle className="mr-1.5 h-4 w-4" />
+                    Chat
+                  </TabsTrigger>
+                </TabsList>
 
-                {/* Extracted text panel */}
-                <div className="flex flex-1 flex-col">
-                  <h3 className="mb-2 text-sm font-semibold">Extracted Text</h3>
-                  {isNotProcessed ? (
-                    <div className="flex flex-col items-center justify-center rounded-md border bg-muted/30 p-8 text-center">
-                      <p className="text-sm text-muted-foreground">Document not yet processed</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        The document text will appear here once parsing is complete.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="rounded-md border">
-                      <div className="p-4">
-                        <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                          {content?.raw_text ?? 'No text content available.'}
-                        </pre>
+                <TabsContent value="analysis" className="flex-1 overflow-hidden">
+                  <ScrollArea className="h-full">
+                    <div className="flex flex-col gap-4 pt-4">
+                      {aiPanel}
+
+                      {/* Extracted text panel */}
+                      <div className="flex flex-1 flex-col">
+                        <h3 className="mb-2 text-sm font-semibold">Extracted Text</h3>
+                        {isNotProcessed ? (
+                          <div className="flex flex-col items-center justify-center rounded-md border bg-muted/30 p-8 text-center">
+                            <p className="text-sm text-muted-foreground">Document not yet processed</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              The document text will appear here once parsing is complete.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="rounded-md border">
+                            <div className="p-4">
+                              <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+                                {content?.raw_text ?? 'No text content available.'}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
-              </div>
-            </ScrollArea>
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="chat" className="flex-1 overflow-hidden">
+                  <ChatPanel documentId={document.id} aiAvailable={aiAvailable} hasRawText={hasRawText} />
+                </TabsContent>
+              </Tabs>
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
         /* Single-column layout for non-previewable files */
-        <div className="flex flex-1 flex-col gap-4 p-6">
-          {/* Metadata header */}
-          <DocumentMetadata document={document} />
+        <div className="flex flex-1 flex-col p-6">
+          {/* Fixed: Metadata + Tags */}
+          <div className="flex flex-col gap-4 pb-4">
+            <DocumentMetadata document={document} />
+            {tagsSection}
 
-          {/* Tags */}
-          {tagsSection}
-
-          {/* Failed status: retry button */}
-          {isFailed && (
-            <div className="flex items-center gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-3">
-              <FileWarning className="h-5 w-5 text-destructive" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">Processing failed</p>
-                <p className="text-xs text-muted-foreground">An error occurred while parsing this document.</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={onRetry} aria-label="Retry parsing">
-                <RotateCcw className="mr-1 h-4 w-4" />
-                Retry
-              </Button>
-            </div>
-          )}
-
-          {/* AI Actions Panel */}
-          {aiPanel}
-
-          {/* Extracted text panel */}
-          <div className="flex flex-1 flex-col">
-            <h3 className="mb-2 text-sm font-semibold">Extracted Text</h3>
-            {isNotProcessed ? (
-              <div className="flex flex-1 flex-col items-center justify-center rounded-md border bg-muted/30 p-8 text-center">
-                <p className="text-sm text-muted-foreground">Document not yet processed</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  The document text will appear here once parsing is complete.
-                </p>
-              </div>
-            ) : (
-              <ScrollArea className="flex-1 rounded-md border">
-                <div className="p-4">
-                  <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {content?.raw_text ?? 'No text content available.'}
-                  </pre>
+            {/* Failed status: retry button */}
+            {isFailed && (
+              <div className="flex items-center gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-3">
+                <FileWarning className="h-5 w-5 text-destructive" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Processing failed</p>
+                  <p className="text-xs text-muted-foreground">An error occurred while parsing this document.</p>
                 </div>
-              </ScrollArea>
+                <Button variant="outline" size="sm" onClick={onRetry} aria-label="Retry parsing">
+                  <RotateCcw className="mr-1 h-4 w-4" />
+                  Retry
+                </Button>
+              </div>
             )}
           </div>
+
+          {/* Tabs: Analysis + Chat */}
+          <Tabs defaultValue="analysis" className="flex flex-1 flex-col">
+            <TabsList className="w-full">
+              <TabsTrigger value="analysis">
+                <Sparkles className="mr-1.5 h-4 w-4" />
+                Analysis
+              </TabsTrigger>
+              <TabsTrigger value="chat">
+                <MessageCircle className="mr-1.5 h-4 w-4" />
+                Chat
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="analysis" className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="flex flex-col gap-4 pt-4">
+                  {aiPanel}
+
+                  {/* Extracted text panel */}
+                  <div className="flex flex-1 flex-col">
+                    <h3 className="mb-2 text-sm font-semibold">Extracted Text</h3>
+                    {isNotProcessed ? (
+                      <div className="flex flex-1 flex-col items-center justify-center rounded-md border bg-muted/30 p-8 text-center">
+                        <p className="text-sm text-muted-foreground">Document not yet processed</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          The document text will appear here once parsing is complete.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-md border">
+                        <div className="p-4">
+                          <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+                            {content?.raw_text ?? 'No text content available.'}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="chat" className="flex-1 overflow-hidden">
+              <ChatPanel documentId={document.id} aiAvailable={aiAvailable} hasRawText={hasRawText} />
+            </TabsContent>
+          </Tabs>
         </div>
       )}
     </div>

@@ -77,6 +77,15 @@ const electronAPI: ElectronAPI = {
   'ai:extract-key-points': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT_KEY_POINTS, documentId),
   'ai:extract-key-terms': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.AI_EXTRACT_KEY_TERMS, documentId),
   'ai:generate-quiz': (documentId, options) => ipcRenderer.invoke(IPC_CHANNELS.AI_GENERATE_QUIZ, documentId, options),
+  'ai:chat': (input) => ipcRenderer.invoke(IPC_CHANNELS.AI_CHAT, input),
+
+  // Chat (DB)
+  'db:chat:conversations:get': (documentId) => ipcRenderer.invoke(IPC_CHANNELS.DB_CHAT_CONVERSATIONS_GET, documentId),
+  'db:chat:messages:list': (conversationId) => ipcRenderer.invoke(IPC_CHANNELS.DB_CHAT_MESSAGES_LIST, conversationId),
+  'db:chat:messages:create': (conversationId, role, content) =>
+    ipcRenderer.invoke(IPC_CHANNELS.DB_CHAT_MESSAGES_CREATE, conversationId, role, content),
+  'db:chat:conversations:delete': (conversationId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.DB_CHAT_CONVERSATIONS_DELETE, conversationId),
 
   // Settings
   'settings:get': (key) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET, key),
