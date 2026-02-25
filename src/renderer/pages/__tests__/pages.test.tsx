@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
+
+// react-pdf loads pdfjs-dist which uses DOMMatrix at module init time — not available in jsdom
+vi.mock('react-pdf', () => ({
+  Document: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Page: () => <div data-testid="pdf-page" />,
+  pdfjs: { GlobalWorkerOptions: { workerSrc: '' } },
+}))
+
 import { DashboardPage } from '../dashboard-page'
 import { ProjectPage } from '../project-page'
 import { SettingsPage } from '../settings-page'
@@ -45,11 +53,18 @@ beforeEach(() => {
     'db:documents:update': vi.fn(),
     'db:documents:delete': vi.fn(),
     'db:quizzes:list': vi.fn(),
-    'db:quizzes:get': vi.fn(),
+    'db:quizzes:get': vi.fn().mockResolvedValue({ success: true, data: null }),
     'db:quizzes:create': vi.fn(),
     'db:quizzes:delete': vi.fn(),
     'db:quiz-attempts:list': vi.fn(),
     'db:quiz-attempts:create': vi.fn(),
+    'db:dashboard:stats': vi.fn().mockResolvedValue({
+      success: true,
+      data: { total_projects: 0, total_documents: 0, total_quizzes: 0, avg_quiz_score: 0 },
+    }),
+    'db:dashboard:recent-docs': vi.fn().mockResolvedValue({ success: true, data: [] }),
+    'db:dashboard:recent-attempts': vi.fn().mockResolvedValue({ success: true, data: [] }),
+    'db:dashboard:projects-with-counts': vi.fn().mockResolvedValue({ success: true, data: [] }),
     'ai:health-check': vi.fn().mockResolvedValue({
       success: true,
       data: { connected: false, models: [] },
@@ -66,7 +81,7 @@ beforeEach(() => {
 })
 
 describe('DashboardPage', () => {
-  it('renders welcome content', () => {
+  it('renders welcome content', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <Routes>
@@ -75,7 +90,10 @@ describe('DashboardPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    // Wait for async data load (stats=0 projects → empty state shows Dashboard heading + welcome)
+    await waitFor(() => {
+      expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    })
     expect(screen.getByText(/welcome to noteko/i)).toBeInTheDocument()
   })
 })
@@ -106,13 +124,13 @@ describe('DocumentPage', () => {
 
     // The rebuilt DocumentPage fetches document data and displays the document name
     await waitFor(() => {
-      expect(screen.getByText('Test Document')).toBeInTheDocument()
+      expect(screen.getAllByText('Test Document')[0]).toBeInTheDocument()
     })
   })
 })
 
 describe('QuizPage', () => {
-  it('renders quiz page with quiz id from route params', () => {
+  it('renders quiz page with quiz id from route params', async () => {
     render(
       <MemoryRouter initialEntries={['/quizzes/3']}>
         <Routes>
@@ -121,7 +139,10 @@ describe('QuizPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Quiz')).toBeInTheDocument()
+    // With null quiz data, page resolves to not-found state
+    await waitFor(() => {
+      expect(screen.getByText('Quiz not found')).toBeInTheDocument()
+    })
   })
 })
 
