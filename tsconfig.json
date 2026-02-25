@@ -19,6 +19,6 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "forge.env.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "forge.env.d.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "dist", ".vite"]
 }

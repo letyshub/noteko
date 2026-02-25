@@ -378,7 +378,7 @@ describe('quiz history service', () => {
 
       vi.mocked(dialog.showSaveDialog).mockResolvedValue({
         canceled: true,
-        filePath: undefined,
+        filePath: '',
       })
 
       const result = await exportHistoryAsJson('{"data":"test"}', 'quiz-history.json')
