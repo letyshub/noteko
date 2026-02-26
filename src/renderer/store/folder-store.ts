@@ -53,7 +53,20 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
     set({ error: null })
     const result = await window.electronAPI['db:folders:delete'](id)
     if (result.success) {
-      set({ folders: get().folders.filter((f) => f.id !== id) })
+      // Collect all descendant folder IDs (BFS) so they are removed from state too
+      const allFolders = get().folders
+      const deleted = new Set<number>()
+      const queue = [id]
+      while (queue.length > 0) {
+        const current = queue.shift()!
+        deleted.add(current)
+        for (const f of allFolders) {
+          if (f.parent_folder_id === current && !deleted.has(f.id)) {
+            queue.push(f.id)
+          }
+        }
+      }
+      set({ folders: allFolders.filter((f) => !deleted.has(f.id)) })
     } else {
       set({ error: result.error.message })
     }

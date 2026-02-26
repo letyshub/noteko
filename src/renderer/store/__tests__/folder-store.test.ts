@@ -123,7 +123,7 @@ describe('useFolderStore', () => {
   })
 
   describe('deleteFolder', () => {
-    it('should delete a folder and remove it from the list', async () => {
+    it('should delete a folder and all its descendants from the list', async () => {
       useFolderStore.setState({ folders: [mockFolder, mockFolder2] })
 
       const result: IpcResult<void> = { success: true, data: undefined }
@@ -133,10 +133,27 @@ describe('useFolderStore', () => {
         await useFolderStore.getState().deleteFolder(1)
       })
 
+      // mockFolder2 is a child of mockFolder (parent_folder_id: 1), so both are removed
       const state = useFolderStore.getState()
-      expect(state.folders).toEqual([mockFolder2])
+      expect(state.folders).toEqual([])
       expect(state.error).toBeNull()
       expect(mockElectronAPI['db:folders:delete']).toHaveBeenCalledWith(1)
+    })
+
+    it('should delete only the target folder when it has no children', async () => {
+      const standaloneFolder2: FolderDto = { ...mockFolder2, parent_folder_id: null }
+      useFolderStore.setState({ folders: [mockFolder, standaloneFolder2] })
+
+      const result: IpcResult<void> = { success: true, data: undefined }
+      mockElectronAPI['db:folders:delete'].mockResolvedValue(result)
+
+      await act(async () => {
+        await useFolderStore.getState().deleteFolder(1)
+      })
+
+      const state = useFolderStore.getState()
+      expect(state.folders).toEqual([standaloneFolder2])
+      expect(state.error).toBeNull()
     })
 
     it('should set error on delete failure', async () => {

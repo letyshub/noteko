@@ -8,6 +8,8 @@ import {
   quizzes,
   quizQuestions,
   quizAttempts,
+  chatConversations,
+  chatMessages,
 } from '@main/database/schema'
 
 export const listFolders = (projectId: number) => {
@@ -70,6 +72,18 @@ export const cascadeDeleteFolder = (id: number) => {
         tx.delete(quizAttempts).where(inArray(quizAttempts.quiz_id, quizIds)).run()
         tx.delete(quizQuestions).where(inArray(quizQuestions.quiz_id, quizIds)).run()
         tx.delete(quizzes).where(inArray(quizzes.document_id, docIds)).run()
+      }
+
+      // Delete chat messages and conversations before documents (FK constraint)
+      const convRows = tx
+        .select({ id: chatConversations.id })
+        .from(chatConversations)
+        .where(inArray(chatConversations.document_id, docIds))
+        .all()
+      const convIds = convRows.map((c) => c.id)
+      if (convIds.length > 0) {
+        tx.delete(chatMessages).where(inArray(chatMessages.conversation_id, convIds)).run()
+        tx.delete(chatConversations).where(inArray(chatConversations.document_id, docIds)).run()
       }
 
       tx.delete(documentTags).where(inArray(documentTags.document_id, docIds)).run()
