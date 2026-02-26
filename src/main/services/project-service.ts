@@ -1,18 +1,10 @@
-import { eq, inArray } from 'drizzle-orm'
-import { getDb } from '@main/database/connection'
-import {
-  projects,
-  folders,
-  documents,
-  documentContent,
-  documentTags,
-  quizzes,
-  quizQuestions,
-  quizAttempts,
-} from '@main/database/schema'
+import { eq } from 'drizzle-orm'
+import { getDb, getSqlite } from '@main/database/connection'
+import { projects } from '@main/database/schema'
 import fs from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
+import log from 'electron-log'
 
 export const listProjects = () => {
   return getDb().select().from(projects).all()
@@ -48,38 +40,70 @@ export const deleteProject = (id: number) => {
 }
 
 export const cascadeDeleteProject = (id: number) => {
-  const db = getDb()
+  const sqlite = getSqlite()
 
-  db.transaction((tx) => {
-    // Collect document IDs for this project
-    const docRows = tx.select({ id: documents.id }).from(documents).where(eq(documents.project_id, id)).all()
-    const docIds = docRows.map((d) => d.id)
+  log.info(`[cascadeDeleteProject] Starting cascade delete for project id=${id}`)
 
+  // Collect all document IDs for this project
+  const docRows = sqlite.prepare<[number], { id: number }>('SELECT id FROM documents WHERE project_id = ?').all(id)
+  const docIds = docRows.map((d) => d.id)
+
+  log.info(`[cascadeDeleteProject] documents to delete: ${docIds.length}`)
+
+  const runDelete = sqlite.transaction(() => {
     if (docIds.length > 0) {
-      // Collect quiz IDs for those documents
-      const quizRows = tx.select({ id: quizzes.id }).from(quizzes).where(inArray(quizzes.document_id, docIds)).all()
+      const docPlaceholders = docIds.map(() => '?').join(',')
+
+      // Quiz attempts → questions → quizzes
+      const quizRows = sqlite
+        .prepare<number[], { id: number }>(`SELECT id FROM quizzes WHERE document_id IN (${docPlaceholders})`)
+        .all(...docIds)
       const quizIds = quizRows.map((q) => q.id)
 
       if (quizIds.length > 0) {
-        tx.delete(quizAttempts).where(inArray(quizAttempts.quiz_id, quizIds)).run()
-        tx.delete(quizQuestions).where(inArray(quizQuestions.quiz_id, quizIds)).run()
-        tx.delete(quizzes).where(inArray(quizzes.document_id, docIds)).run()
+        const quizPlaceholders = quizIds.map(() => '?').join(',')
+        sqlite.prepare(`DELETE FROM quiz_attempts WHERE quiz_id IN (${quizPlaceholders})`).run(...quizIds)
+        sqlite.prepare(`DELETE FROM quiz_questions WHERE quiz_id IN (${quizPlaceholders})`).run(...quizIds)
+        sqlite.prepare(`DELETE FROM quizzes WHERE id IN (${quizPlaceholders})`).run(...quizIds)
+        log.info(`[cascadeDeleteProject] deleted ${quizIds.length} quiz(zes)`)
       }
 
-      tx.delete(documentTags).where(inArray(documentTags.document_id, docIds)).run()
-      tx.delete(documentContent).where(inArray(documentContent.document_id, docIds)).run()
-      tx.delete(documents).where(eq(documents.project_id, id)).run()
+      // Chat messages → conversations
+      const convRows = sqlite
+        .prepare<
+          number[],
+          { id: number }
+        >(`SELECT id FROM chat_conversations WHERE document_id IN (${docPlaceholders})`)
+        .all(...docIds)
+      const convIds = convRows.map((c) => c.id)
+
+      if (convIds.length > 0) {
+        const convPlaceholders = convIds.map(() => '?').join(',')
+        sqlite.prepare(`DELETE FROM chat_messages WHERE conversation_id IN (${convPlaceholders})`).run(...convIds)
+        sqlite.prepare(`DELETE FROM chat_conversations WHERE id IN (${convPlaceholders})`).run(...convIds)
+        log.info(`[cascadeDeleteProject] deleted ${convIds.length} chat conversation(s)`)
+      }
+
+      // document_tags, document_content, documents
+      sqlite.prepare(`DELETE FROM document_tags WHERE document_id IN (${docPlaceholders})`).run(...docIds)
+      sqlite.prepare(`DELETE FROM document_content WHERE document_id IN (${docPlaceholders})`).run(...docIds)
+      sqlite.prepare('DELETE FROM documents WHERE project_id = ?').run(id)
+      log.info(`[cascadeDeleteProject] deleted ${docIds.length} document(s)`)
     }
 
-    tx.delete(folders).where(eq(folders.project_id, id)).run()
-    tx.delete(projects).where(eq(projects.id, id)).run()
+    // All folders for this project, then the project itself
+    sqlite.prepare('DELETE FROM folders WHERE project_id = ?').run(id)
+    sqlite.prepare('DELETE FROM projects WHERE id = ?').run(id)
+    log.info(`[cascadeDeleteProject] deleted project id=${id}`)
   })
 
-  // Clean up physical files (best-effort, won't work in tests)
+  runDelete()
+
+  // Clean up physical files (best-effort)
   try {
     const docsDir = path.join(app.getPath('userData'), 'documents', String(id))
     fs.rmSync(docsDir, { recursive: true, force: true })
   } catch {
-    // Ignore file cleanup errors (e.g., directory doesn't exist, test environment)
+    // Ignore — directory may not exist in test/dev environments
   }
 }
