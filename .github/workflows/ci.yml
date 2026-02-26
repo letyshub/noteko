@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HUSKY: '0'
+      # Skip downloading the Electron binary — lint/typecheck don't need it
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,6 +31,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       HUSKY: '0'
+      # Skip downloading the Electron binary — unit tests run under Node.js/jsdom
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,10 +57,22 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: sudo apt-get update -y && sudo apt-get install -y build-essential python3 rpm
+      # Cache the Electron binary to avoid transient download failures
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
+      # Rebuild better-sqlite3 for Electron's embedded Node.js (different ABI than system Node.js)
+      - run: npm run rebuild:electron
+      # Build main + preload for e2e (electron-forge does this during start/package,
+      # but Playwright tests launch Electron directly without going through forge)
+      - run: node scripts/build-main-e2e.mjs
+      - name: Install Playwright system dependencies
+        run: npx playwright install-deps chromium
       - name: Run e2e tests with Xvfb
         run: |
           Xvfb :99 -screen 0 1024x768x24 &
           export DISPLAY=:99
-          npm run package
           npm run test:e2e
