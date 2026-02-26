@@ -354,4 +354,16 @@ const getDb = (): BetterSQLite3Database<typeof schema> => {
   return db
 }
 
-export { initializeDatabase, closeDatabase, getDb, runMigrations }
+/**
+ * Get the raw better-sqlite3 Database instance.
+ * Used for operations that require direct SQL execution (e.g. complex cascades).
+ * Throws if the database has not been initialized.
+ */
+const getSqlite = (): Database.Database => {
+  if (!sqlite) {
+    throw new Error('Database not initialized. Call initializeDatabase() first.')
+  }
+  return sqlite
+}
+
+export { initializeDatabase, closeDatabase, getDb, getSqlite, runMigrations }

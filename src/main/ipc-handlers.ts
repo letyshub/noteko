@@ -513,9 +513,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.FOLDERS_DELETE, async (_event, id: number) => {
     try {
+      log.info(`[folders:delete] Starting cascade delete for folder id=${id}`)
       cascadeDeleteFolder(id)
+      log.info(`[folders:delete] Successfully deleted folder id=${id}`)
       return createIpcSuccess(undefined as void)
     } catch (error) {
+      log.error(`[folders:delete] Failed to delete folder id=${id}:`, error)
       return createIpcError('FOLDERS_DELETE_ERROR', error instanceof Error ? error.message : 'Unknown error')
     }
   })
