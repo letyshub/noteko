@@ -62,6 +62,102 @@ const runMigrations = (db: Database.Database): void => {
     return cols.some((c) => c.name === column)
   }
 
+  // -------------------------------------------------------------------------
+  // Core schema bootstrap — CREATE TABLE IF NOT EXISTS for all tables that
+  // were part of the initial schema.  These statements are idempotent: they
+  // are no-ops on an existing database and create the tables on a fresh one
+  // (e.g. in CI, where there is no pre-existing noteko-dev.db).
+  // Creation order respects FK dependencies: projects → folders → documents
+  // → document_content / quizzes → quiz_questions / quiz_attempts.
+  // -------------------------------------------------------------------------
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT NOT NULL,
+      description TEXT,
+      color       TEXT,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS folders (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      name             TEXT NOT NULL,
+      project_id       INTEGER NOT NULL REFERENCES projects(id),
+      parent_folder_id INTEGER REFERENCES folders(id),
+      created_at       TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS documents (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      name              TEXT NOT NULL,
+      file_path         TEXT NOT NULL,
+      file_type         TEXT NOT NULL,
+      file_size         INTEGER NOT NULL,
+      folder_id         INTEGER NOT NULL REFERENCES folders(id),
+      project_id        INTEGER NOT NULL REFERENCES projects(id),
+      processing_status TEXT NOT NULL DEFAULT 'pending',
+      created_at        TEXT NOT NULL,
+      updated_at        TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS document_content (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id INTEGER NOT NULL UNIQUE REFERENCES documents(id),
+      raw_text    TEXT,
+      summary     TEXT,
+      key_points  TEXT,
+      key_terms   TEXT,
+      summary_style TEXT,
+      processed_at  TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS app_logs (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      level      TEXT NOT NULL,
+      message    TEXT NOT NULL,
+      context    TEXT,
+      category   TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS quizzes (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id      INTEGER NOT NULL REFERENCES documents(id),
+      title            TEXT NOT NULL,
+      created_at       TEXT NOT NULL,
+      question_count   INTEGER,
+      difficulty_level TEXT,
+      question_types   TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS quiz_questions (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      quiz_id        INTEGER NOT NULL REFERENCES quizzes(id),
+      question       TEXT NOT NULL,
+      options        TEXT,
+      correct_answer TEXT NOT NULL,
+      explanation    TEXT,
+      type           TEXT,
+      difficulty     TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS quiz_attempts (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      quiz_id         INTEGER NOT NULL REFERENCES quizzes(id),
+      score           INTEGER NOT NULL,
+      total_questions INTEGER NOT NULL,
+      answers         TEXT,
+      completed_at    TEXT NOT NULL
+    );
+  `)
+
   // Only migrate tables that already exist (skip on fresh databases)
   if (tableExists('document_content')) {
     if (!hasColumn('document_content', 'key_terms')) {
