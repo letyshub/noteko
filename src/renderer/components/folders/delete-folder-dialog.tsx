@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,14 +20,25 @@ interface DeleteFolderDialogProps {
 
 export function DeleteFolderDialog({ open, onOpenChange, folder }: DeleteFolderDialogProps) {
   const deleteFolder = useFolderStore((s) => s.deleteFolder)
+  const [error, setError] = useState<string | null>(null)
 
   const handleDelete = async () => {
-    await deleteFolder(folder.id)
-    onOpenChange(false)
+    setError(null)
+    const success = await deleteFolder(folder.id)
+    if (success) {
+      onOpenChange(false)
+    } else {
+      setError(useFolderStore.getState().error ?? 'Failed to delete folder')
+    }
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) setError(null)
+    onOpenChange(open)
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Folder</AlertDialogTitle>
@@ -35,6 +47,7 @@ export function DeleteFolderDialog({ open, onOpenChange, folder }: DeleteFolderD
             will also be deleted. This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {error && <p className="px-1 text-sm text-destructive">{error}</p>}
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction variant="destructive" onClick={handleDelete}>

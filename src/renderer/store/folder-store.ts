@@ -9,7 +9,7 @@ interface FolderStore {
   fetchFolders: (projectId: number) => Promise<void>
   createFolder: (input: CreateFolderInput) => Promise<void>
   updateFolder: (id: number, input: UpdateFolderInput) => Promise<void>
-  deleteFolder: (id: number) => Promise<void>
+  deleteFolder: (id: number) => Promise<boolean>
 }
 
 export const useFolderStore = create<FolderStore>((set, get) => ({
@@ -67,8 +67,10 @@ export const useFolderStore = create<FolderStore>((set, get) => ({
         }
       }
       set({ folders: allFolders.filter((f) => !deleted.has(f.id)) })
+      return true
     } else {
       set({ error: result.error.message })
+      return false
     }
   },
 }))

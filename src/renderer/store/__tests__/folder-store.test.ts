@@ -129,14 +129,16 @@ describe('useFolderStore', () => {
       const result: IpcResult<void> = { success: true, data: undefined }
       mockElectronAPI['db:folders:delete'].mockResolvedValue(result)
 
+      let returnValue: boolean | undefined
       await act(async () => {
-        await useFolderStore.getState().deleteFolder(1)
+        returnValue = await useFolderStore.getState().deleteFolder(1)
       })
 
       // mockFolder2 is a child of mockFolder (parent_folder_id: 1), so both are removed
       const state = useFolderStore.getState()
       expect(state.folders).toEqual([])
       expect(state.error).toBeNull()
+      expect(returnValue).toBe(true)
       expect(mockElectronAPI['db:folders:delete']).toHaveBeenCalledWith(1)
     })
 
@@ -156,7 +158,7 @@ describe('useFolderStore', () => {
       expect(state.error).toBeNull()
     })
 
-    it('should set error on delete failure', async () => {
+    it('should return false and set error on delete failure', async () => {
       useFolderStore.setState({ folders: [mockFolder] })
 
       const result: IpcResult<void> = {
@@ -165,12 +167,14 @@ describe('useFolderStore', () => {
       }
       mockElectronAPI['db:folders:delete'].mockResolvedValue(result)
 
+      let returnValue: boolean | undefined
       await act(async () => {
-        await useFolderStore.getState().deleteFolder(1)
+        returnValue = await useFolderStore.getState().deleteFolder(1)
       })
 
       expect(useFolderStore.getState().folders).toEqual([mockFolder])
       expect(useFolderStore.getState().error).toBe('Folder not found')
+      expect(returnValue).toBe(false)
     })
   })
 })
