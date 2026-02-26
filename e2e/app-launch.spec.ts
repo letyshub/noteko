@@ -26,6 +26,11 @@ test('app launches and shows main window', async () => {
     env,
   })
 
+  // Forward Electron's main-process stderr so CI logs show startup errors
+  electronApp.process().stderr?.on('data', (data: Buffer) => {
+    process.stderr.write(`[electron] ${data.toString()}`)
+  })
+
   // Wait for the main app window. In dev mode Electron opens DevTools as a
   // separate BrowserWindow, so firstWindow() may return the DevTools window.
   // We listen for window events and resolve on the first non-DevTools window.

@@ -69,7 +69,4 @@ jobs:
       - name: Install Playwright system dependencies
         run: npx playwright install-deps chromium
       - name: Run e2e tests with Xvfb
-        run: |
-          Xvfb :99 -screen 0 1024x768x24 &
-          export DISPLAY=:99
-          npm run test:e2e
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm run test:e2e

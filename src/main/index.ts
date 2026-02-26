@@ -170,7 +170,16 @@ app.on('ready', async () => {
     }
   } catch (error) {
     log.error('Failed to start application:', error)
-    dialog.showErrorBox('Startup Error', 'Failed to initialize the database. The application will now exit.')
+    // dialog.showErrorBox is synchronous and blocks until the user clicks OK.
+    // In CI / headless environments there is no user, so it would block forever.
+    // Write to stderr instead so the error is visible in CI logs.
+    if (process.env.CI) {
+      process.stderr.write(
+        `[noteko startup error] ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+      )
+    } else {
+      dialog.showErrorBox('Startup Error', 'Failed to initialize the database. The application will now exit.')
+    }
     app.quit()
   }
 })
