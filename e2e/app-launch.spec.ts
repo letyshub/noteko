@@ -10,9 +10,19 @@ test('app launches and shows main window', async () => {
     Object.entries(process.env).filter(([k, v]) => k !== 'ELECTRON_RUN_AS_NODE' && v !== undefined),
   ) as Record<string, string>
 
+  // On Linux, Electron requires a display. Ensure DISPLAY is set when Xvfb is
+  // running but the env var was not exported before the test process started.
+  if (process.platform === 'linux' && !env.DISPLAY) {
+    env.DISPLAY = ':99'
+  }
+
+  // On Linux (including CI), Electron's Chromium sandbox requires kernel
+  // namespaces that are often disabled. --no-sandbox bypasses this restriction.
+  const args = process.platform === 'linux' ? ['--no-sandbox', '.'] : ['.']
+
   const electronApp = await electron.launch({
     executablePath: electronPath,
-    args: ['.'],
+    args,
     env,
   })
 
