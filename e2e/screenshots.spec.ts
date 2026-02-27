@@ -91,11 +91,11 @@ test('capture documentation screenshots', async () => {
     return r.success ? (r.data as Array<{ id: number; name: string }>) : []
   })
 
-  for (const p of allProjects.filter((p) => p.name === PROJECT_NAME)) {
+  for (const p of allProjects) {
     await page.evaluate(async (pid: number) => {
       await (window as unknown as { electronAPI: EA }).electronAPI['db:projects:delete'](pid)
     }, p.id)
-    console.log(`  → Deleted stale project "${p.name}" id=${p.id}`)
+    console.log(`  → Deleted project "${p.name}" id=${p.id}`)
   }
 
   // Create fresh project
