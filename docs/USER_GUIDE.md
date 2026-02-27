@@ -45,6 +45,12 @@ You can skip any step and configure it later via **Settings**.
 
 > To reopen the wizard at any time, go to **Settings → General** and click **Run Setup Wizard**.
 
+### Dashboard
+
+![Dashboard](screenshots/01-dashboard.png)
+
+The dashboard shows an overview of your study activity: total projects, documents, quizzes taken, and average score. Recent documents and projects are listed for quick access.
+
 ---
 
 ## Setting Up Ollama (AI Engine)
@@ -78,6 +84,8 @@ Other recommended models:
 3. Click **Test Connection**. If connected, available models will appear in the **Model** dropdown.
 4. Select your preferred model and click **Save**.
 
+![Ollama Settings](screenshots/07-settings.png)
+
 > **Note:** Ollama must be running in the background for AI features to work. On Windows and macOS, Ollama typically starts automatically after installation.
 
 ---
@@ -104,6 +112,8 @@ Projects are the top-level containers for your study materials. Each project can
 - Deleting a project permanently removes all its folders, documents, and associated data (summaries, quizzes, chat history).
 
 > Projects are color-coded to help you distinguish them at a glance.
+
+![Project page showing documents](screenshots/02-project.png)
 
 ---
 
@@ -174,6 +184,8 @@ The right panel has tabs:
 - **Analysis** — AI-generated summaries, key points, key terms, and quiz generation.
 - **Chat** — Ask questions about the document.
 
+![Document viewer with Analysis tab](screenshots/03-document-analysis.png)
+
 ---
 
 ### Processing Status
@@ -236,6 +248,8 @@ Ask questions about the document in natural language.
 2. Type your question in the input field and press **Enter** or click **Send**.
 3. The AI answers based on the document's content.
 
+![Chat tab](screenshots/04-document-chat.png)
+
 **Tips:**
 
 - Be specific: "What are the three main causes described in chapter 2?" works better than "What's this about?"
@@ -273,12 +287,14 @@ Quiz generation streams in real-time. When complete, a toast notification appear
 
 ### Quiz History & Performance
 
-Navigate to **Quizzes** in the sidebar to see:
+Navigate to **Quiz History** in the sidebar to see:
 
 - **All quizzes** for all your documents.
 - **Score history** per quiz — track improvement over time with a trend chart.
 - **Weak areas** — questions you consistently answer incorrectly.
 - **Performance summary** — average score, total attempts, best score.
+
+![Quiz History page](screenshots/05-quiz-history.png)
 
 Use the toolbar to filter by project, document, or date range.
 
@@ -287,6 +303,8 @@ Use the toolbar to filter by project, document, or date range.
 ## Search
 
 Click the **Search** icon (or press `Ctrl+K` / `Cmd+K`) to open the global search dialog.
+
+![Search dialog](screenshots/08-search.png)
 
 - Search across all documents by name or content.
 - Filter results by **project**, **folder**, or **tag**.
@@ -323,6 +341,8 @@ Open **Settings** from the bottom of the sidebar.
 
 Navigate to **Logs** in the sidebar to view application activity.
 
+![Logs page](screenshots/06-logs.png)
+
 - **Log list** — Chronological list of processing events with level (info, warn, error).
 - **Filters** — Filter by log level, date range, or search text.
 - **Stats cards** — Summary counts by log level.
@@ -350,7 +370,6 @@ Logs are useful for diagnosing issues (e.g., why a document failed to parse or w
 
 ### Cannot delete a project or folder
 
-- Only projects/folders you own can be deleted.
 - All data inside (documents, quizzes, chat history) is permanently deleted — this cannot be undone.
 
 ### Ollama is running but no models are listed
