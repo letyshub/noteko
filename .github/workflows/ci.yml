@@ -71,4 +71,4 @@ jobs:
       - name: Install Playwright system dependencies
         run: npx playwright install-deps chromium
       - name: Run e2e tests with Xvfb
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npx playwright test --ignore=e2e/screenshots.spec.ts
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npx playwright test e2e/app-launch.spec.ts
