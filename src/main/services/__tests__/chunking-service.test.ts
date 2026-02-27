@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest'
+import { describe, expect, it, beforeEach, vi, type Mock } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mocks - must be declared before importing the module under test
@@ -13,14 +13,158 @@ vi.mock('electron-log', () => ({
   },
 }))
 
+vi.mock('@main/services/ollama-service', () => ({
+  generate: vi.fn(),
+}))
+
 // ---------------------------------------------------------------------------
 // Tests — splitTextIntoChunks
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Helper: build an async generator from an array of tokens
+// ---------------------------------------------------------------------------
+
+async function* tokenGenerator(tokens: string[]): AsyncGenerator<string> {
+  for (const token of tokens) {
+    yield token
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests — runChunkedAiGeneration
 // ---------------------------------------------------------------------------
 
 describe('chunking-service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
+  })
+
+  describe('runChunkedAiGeneration', () => {
+    it('should call mergeResults instead of LLM combine pass when provided', async () => {
+      const { generate } = await import('@main/services/ollama-service')
+      const { runChunkedAiGeneration } = await import('@main/services/chunking-service')
+
+      // Two chunks, each returns one token
+      ;(generate as Mock)
+        .mockReturnValueOnce(tokenGenerator(['chunk1result']))
+        .mockReturnValueOnce(tokenGenerator(['chunk2result']))
+
+      const savedResults: string[] = []
+      const mergeResults = vi.fn((chunkTexts: string[]) => chunkTexts.join('|'))
+      const saveResult = vi.fn((text: string) => savedResults.push(text))
+      const sendStreamEvent = vi.fn()
+
+      await runChunkedAiGeneration({
+        documentId: 1,
+        operationType: 'quiz',
+        model: 'llama3.2',
+        chunks: ['chunk1text', 'chunk2text'],
+        promptTemplate: 'Analyze: {text}',
+        combinePromptTemplate: 'Combine: {text}',
+        mergeResults,
+        saveResult,
+        sendStreamEvent,
+      })
+
+      // generate() called exactly once per chunk (no extra LLM combine call)
+      expect(generate).toHaveBeenCalledTimes(2)
+      expect(mergeResults).toHaveBeenCalledWith(['chunk1result', 'chunk2result'])
+      expect(saveResult).toHaveBeenCalledWith('chunk1result|chunk2result')
+    })
+
+    it('should call LLM combine pass when mergeResults is not provided', async () => {
+      const { generate } = await import('@main/services/ollama-service')
+      const { runChunkedAiGeneration } = await import('@main/services/chunking-service')
+
+      ;(generate as Mock)
+        .mockReturnValueOnce(tokenGenerator(['chunk1result']))
+        .mockReturnValueOnce(tokenGenerator(['chunk2result']))
+        .mockReturnValueOnce(tokenGenerator(['combinedResult'])) // 3rd call = combine pass
+
+      const saveResult = vi.fn()
+      const sendStreamEvent = vi.fn()
+
+      await runChunkedAiGeneration({
+        documentId: 1,
+        operationType: 'quiz',
+        model: 'llama3.2',
+        chunks: ['chunk1text', 'chunk2text'],
+        promptTemplate: 'Analyze: {text}',
+        combinePromptTemplate: 'Combine: {text}',
+        saveResult,
+        sendStreamEvent,
+      })
+
+      // 2 chunk calls + 1 combine call
+      expect(generate).toHaveBeenCalledTimes(3)
+      expect(saveResult).toHaveBeenCalledWith('combinedResult')
+    })
+
+    it('should process all chunks when parallelMap is true', async () => {
+      const { generate } = await import('@main/services/ollama-service')
+      const { runChunkedAiGeneration } = await import('@main/services/chunking-service')
+
+      ;(generate as Mock)
+        .mockReturnValueOnce(tokenGenerator(['r1']))
+        .mockReturnValueOnce(tokenGenerator(['r2']))
+        .mockReturnValueOnce(tokenGenerator(['r3']))
+
+      const mergeResults = vi.fn((texts: string[]) => texts.join(','))
+      const saveResult = vi.fn()
+      const sendStreamEvent = vi.fn()
+
+      await runChunkedAiGeneration({
+        documentId: 2,
+        operationType: 'quiz',
+        model: 'llama3.2',
+        chunks: ['a', 'b', 'c'],
+        promptTemplate: '{text}',
+        combinePromptTemplate: '{text}',
+        parallelMap: true,
+        mergeResults,
+        saveResult,
+        sendStreamEvent,
+      })
+
+      expect(generate).toHaveBeenCalledTimes(3)
+      // All three chunk results passed to mergeResults
+      const mergeArg = mergeResults.mock.calls[0][0] as string[]
+      expect(mergeArg).toHaveLength(3)
+      expect(mergeArg).toContain('r1')
+      expect(mergeArg).toContain('r2')
+      expect(mergeArg).toContain('r3')
+    })
+
+    it('should send an error stream event when generate throws', async () => {
+      const { generate } = await import('@main/services/ollama-service')
+      const { runChunkedAiGeneration } = await import('@main/services/chunking-service')
+
+      ;(generate as Mock).mockReturnValueOnce(
+        (async function* () {
+          yield 'token'
+          throw new Error('Ollama unavailable')
+        })(),
+      )
+
+      const sendStreamEvent = vi.fn()
+
+      await runChunkedAiGeneration({
+        documentId: 3,
+        operationType: 'quiz',
+        model: 'llama3.2',
+        chunks: ['text'],
+        promptTemplate: '{text}',
+        combinePromptTemplate: '{text}',
+        sendStreamEvent,
+        saveResult: vi.fn(),
+      })
+
+      const doneEvent = sendStreamEvent.mock.calls.find((call) => call[0].done)
+      expect(doneEvent).toBeDefined()
+      expect(doneEvent![0].error).toMatch(/Ollama unavailable/)
+    })
   })
 
   describe('splitTextIntoChunks', () => {
