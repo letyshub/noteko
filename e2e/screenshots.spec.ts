@@ -11,26 +11,32 @@ import type { Page, ElectronApplication } from '@playwright/test'
 const electronPath: string = require('electron')
 
 const SCREENSHOTS_DIR = path.resolve(process.cwd(), 'docs', 'screenshots')
+const PROJECT_NAME = 'Machine Learning'
 
-// Existing PDF files already on disk from previous uploads
 const DEMO_FILES = [
   {
     name: 'AI as a Service',
-    file_path: path.resolve(process.cwd(), 'files/7/1771832896744-AI as a Service.pdf'),
+    file_path: path.resolve(process.cwd(), 'example-books/AI as a Service.pdf'),
     file_type: 'pdf',
-    file_size: 30076005,
+    file_size: 30637082,
   },
   {
-    name: 'Automatyka - Podzespoły i Aplikacje 9/2025',
-    file_path: path.resolve(process.cwd(), 'files/7/1771827288425-Automatyka-Podzespoly-Aplikacje_9-2025.pdf'),
+    name: 'Deep Learning for Vision Systems',
+    file_path: path.resolve(process.cwd(), 'example-books/Deep Learning for Vision Systems.pdf'),
     file_type: 'pdf',
-    file_size: 16905423,
+    file_size: 15537417,
   },
   {
-    name: 'Automatyka - Podzespoły i Aplikacje 10/2023',
-    file_path: path.resolve(process.cwd(), 'files/9/1771798834620-Automatyka-Podzespoly-Aplikacje_10-2023.pdf'),
+    name: 'Deep Learning with PyTorch',
+    file_path: path.resolve(process.cwd(), 'example-books/Deep Learning with PyTorch.pdf'),
     file_type: 'pdf',
-    file_size: 15990049,
+    file_size: 46975122,
+  },
+  {
+    name: 'Machine Learning for Business',
+    file_path: path.resolve(process.cwd(), 'example-books/Machine Learning for Business.pdf'),
+    file_type: 'pdf',
+    file_size: 16486687,
   },
 ]
 
@@ -76,87 +82,79 @@ test('capture documentation screenshots', async () => {
     await page.waitForTimeout(600)
   }
 
-  // ── Seed demo data ────────────────────────────────────────────────────────
+  // ── Seed demo data (always fresh) ────────────────────────────────────────
   type EA = Record<string, (...a: unknown[]) => Promise<{ success: boolean; data: unknown }>>
-  const ea = () => (window as unknown as { electronAPI: EA }).electronAPI
 
-  // Use existing project or create one
-  const existingProjects = await page.evaluate(async () => {
+  // Delete any existing "Machine Learning" project for a clean state
+  const allProjects = await page.evaluate(async () => {
     const r = await (window as unknown as { electronAPI: EA }).electronAPI['db:projects:list']()
     return r.success ? (r.data as Array<{ id: number; name: string }>) : []
   })
 
-  let projectId: number
-  if (existingProjects.length > 0) {
-    projectId = existingProjects[0].id
-    console.log(`  → Using existing project id=${projectId}`)
-  } else {
-    const r = await page.evaluate(async () => {
-      const res = await (window as unknown as { electronAPI: EA }).electronAPI['db:projects:create']({
-        name: 'Machine Learning Fundamentals',
-        description: 'Study materials for machine learning and AI',
-        color: '#3b82f6',
-      })
-      return res.success ? (res.data as { id: number }) : null
+  for (const p of allProjects.filter((p) => p.name === PROJECT_NAME)) {
+    await page.evaluate(async (pid: number) => {
+      await (window as unknown as { electronAPI: EA }).electronAPI['db:projects:delete'](pid)
+    }, p.id)
+    console.log(`  → Deleted stale project "${p.name}" id=${p.id}`)
+  }
+
+  // Create fresh project
+  const created = await page.evaluate(async (name: string) => {
+    const res = await (window as unknown as { electronAPI: EA }).electronAPI['db:projects:create']({
+      name,
+      description: 'AI and machine learning study books',
+      color: '#3b82f6',
     })
-    if (!r) throw new Error('Failed to create demo project')
-    projectId = r.id
-    console.log(`  → Created demo project id=${projectId}`)
-  }
+    return res.success ? (res.data as { id: number }) : null
+  }, PROJECT_NAME)
+  if (!created) throw new Error('Failed to create project')
+  const projectId = created.id
+  console.log(`  → Created project "${PROJECT_NAME}" id=${projectId}`)
 
-  await page.waitForTimeout(600)
+  await page.waitForTimeout(400)
 
-  // Use existing folder or create one
-  const existingFolders = await page.evaluate(async (pid: number) => {
-    const r = await (window as unknown as { electronAPI: EA }).electronAPI['db:folders:list'](pid)
-    return r.success ? (r.data as Array<{ id: number }>) : []
+  // Create a folder
+  const folderResult = await page.evaluate(async (pid: number) => {
+    const res = await (window as unknown as { electronAPI: EA }).electronAPI['db:folders:create']({
+      name: 'Deep Learning',
+      project_id: pid,
+    })
+    return res.success ? (res.data as { id: number }) : null
   }, projectId)
+  if (!folderResult) throw new Error('Failed to create folder')
+  const folderId = folderResult.id
+  console.log(`  → Created folder "Deep Learning" id=${folderId}`)
 
-  let folderId: number
-  if (existingFolders.length > 0) {
-    folderId = existingFolders[0].id
-  } else {
-    const r = await page.evaluate(async (pid: number) => {
-      const res = await (window as unknown as { electronAPI: EA }).electronAPI['db:folders:create']({
-        name: 'Study Materials',
-        project_id: pid,
-      })
-      return res.success ? (res.data as { id: number }) : null
-    }, projectId)
-    if (!r) throw new Error('Failed to create demo folder')
-    folderId = r.id
-    console.log(`  → Created demo folder id=${folderId}`)
-  }
-
-  // Use existing docs or create from real files on disk
-  const existingDocs = await page.evaluate(async (pid: number) => {
-    const r = await (window as unknown as { electronAPI: EA }).electronAPI['db:documents:list'](pid)
-    return r.success ? (r.data as Array<{ id: number }>) : []
-  }, projectId)
-
-  const docIds: number[] = existingDocs.map((d) => d.id)
-
-  if (docIds.length === 0) {
-    for (const demo of DEMO_FILES) {
-      if (!fs.existsSync(demo.file_path)) continue
-      const input = { ...demo, folder_id: folderId, project_id: projectId }
-      const r = await page.evaluate(async (inp) => {
-        const res = await (window as unknown as { electronAPI: EA }).electronAPI['db:documents:create'](inp)
-        return res.success ? (res.data as { id: number }) : null
-      }, input)
-      if (r) {
-        docIds.push(r.id)
-        console.log(`  → Created document "${demo.name}" id=${r.id}`)
-      }
+  // Create documents from example books
+  const docIds: number[] = []
+  for (const demo of DEMO_FILES) {
+    if (!fs.existsSync(demo.file_path)) {
+      console.log(`  → Skipping "${demo.name}" (file not found)`)
+      continue
     }
-  } else {
-    console.log(`  → Using ${docIds.length} existing documents`)
+    const input = { ...demo, folder_id: folderId, project_id: projectId }
+    const r = await page.evaluate(async (inp) => {
+      const res = await (window as unknown as { electronAPI: EA }).electronAPI['db:documents:create'](inp)
+      return res.success ? (res.data as { id: number }) : null
+    }, input)
+    if (r) {
+      docIds.push(r.id)
+      console.log(`  → Created document "${demo.name}" id=${r.id}`)
+    }
   }
 
-   
-  void ea // suppress unused warning
+  // Reload so all Zustand stores re-initialize from the DB —
+  // ensures sidebar fetchProjects() picks up the newly created project.
+  await page.reload()
+  await page.waitForLoadState('domcontentloaded')
+  await page.waitForTimeout(2500)
 
-  await page.waitForTimeout(800)
+  // Dismiss wizard again after reload (best-effort)
+  const skipBtn2 = page.getByRole('button', { name: 'Skip' })
+  if (await skipBtn2.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await skipBtn2.click()
+    await page.waitForTimeout(600)
+  }
 
   // ── Helper functions ──────────────────────────────────────────────────────
   const goto = async (hash: string, wait = 1200) => {
@@ -176,15 +174,6 @@ test('capture documentation screenshots', async () => {
   await shot('01-dashboard.png')
 
   // ── 2. Project page ───────────────────────────────────────────────────────
-  // Trigger project store refresh so the page can find the project
-  await page
-    .evaluate(async () => {
-      const { useProjectStore } = await import('/src/renderer/store/project-store')
-      await useProjectStore.getState().fetchProjects()
-    })
-    .catch(() => {
-      /* store refresh best-effort */
-    })
   await goto(`/projects/${projectId}`, 2000)
   await shot('02-project.png')
 
@@ -193,7 +182,7 @@ test('capture documentation screenshots', async () => {
     await goto(`/documents/${docIds[0]}`, 1500)
     await shot('03-document-analysis.png')
 
-    // Switch to Chat tab if present
+    // Switch to Chat tab
     const chatTab = page.getByRole('tab', { name: /chat/i })
     if (await chatTab.isVisible({ timeout: 2000 }).catch(() => false)) {
       await chatTab.click()

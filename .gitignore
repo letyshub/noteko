@@ -46,3 +46,7 @@ drizzle/
 # Playwright
 test-results/
 playwright-report/
+
+# Local example/test files (not for version control)
+example-books/
+files/
