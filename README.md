@@ -1,5 +1,12 @@
 # Noteko
 
+[![CI](https://github.com/letyshub/noteko/actions/workflows/ci.yml/badge.svg)](https://github.com/letyshub/noteko/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-40-47848F?logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/letyshub/noteko/pulls)
+
 AI-powered document analysis and quiz generation desktop application. Upload PDFs, images, and documents — Noteko extracts key information and generates interactive quizzes to help you learn.
 
 ## Documentation
