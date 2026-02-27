@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [master, mvp]
+  pull_request:
+    branches: [master]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: '0'
+      # Skip downloading the Electron binary — lint/typecheck don't need it
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: sudo apt-get update -y && sudo apt-get install -y build-essential python3
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+
+  test:
+    needs: quality
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      HUSKY: '0'
+      # Skip downloading the Electron binary — unit tests run under Node.js/jsdom
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update -y && sudo apt-get install -y build-essential python3 rpm
+      - run: npm ci
+      - run: npm rebuild better-sqlite3
+      - run: npm run test
+
+  e2e:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: sudo apt-get update -y && sudo apt-get install -y build-essential python3 rpm
+      # Cache the Electron binary to avoid transient download failures
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      # Rebuild better-sqlite3 for Electron's embedded Node.js (different ABI than system Node.js)
+      - run: npm run rebuild:electron
+      # Build the Electron main process (produces .vite/build/index.js)
+      - name: Build main process for e2e
+        run: npm run pretest:e2e
+      - name: Install Playwright system dependencies
+        run: npx playwright install-deps chromium
+      - name: Run e2e tests with Xvfb
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npx playwright test e2e/app-launch.spec.ts

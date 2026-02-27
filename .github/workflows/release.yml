@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      HUSKY: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y build-essential python3 rpm
+      - run: npm ci
+      - run: npm run make
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: out/make/**
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**
+          generate_release_notes: true
