@@ -2,6 +2,10 @@
 
 AI-powered document analysis and quiz generation desktop application. Upload PDFs, images, and documents — Noteko extracts key information and generates interactive quizzes to help you learn.
 
+## Documentation
+
+- [User Guide](docs/USER_GUIDE.md) — Getting started, AI features, quizzes, settings, and troubleshooting
+
 ## Features
 
 - **Document Upload & Management** — Upload PDF, images (.png, .jpg), and Word documents (.docx). Organize files into projects/folders.
