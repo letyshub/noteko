@@ -27,8 +27,10 @@ vi.mock('electron-log', () => ({
 }))
 
 const mockGetDb = vi.fn()
+const mockGetSqlite = vi.fn()
 vi.mock('@main/database/connection', () => ({
   getDb: (...args: unknown[]) => mockGetDb(...args),
+  getSqlite: (...args: unknown[]) => mockGetSqlite(...args),
 }))
 
 const createTables = (sqlite: Database.Database): void => {
@@ -109,6 +111,20 @@ const createTables = (sqlite: Database.Database): void => {
       total_questions INTEGER NOT NULL,
       answers TEXT,
       completed_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id INTEGER NOT NULL UNIQUE REFERENCES documents(id),
+      title TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL REFERENCES chat_conversations(id),
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
     );
   `)
 }
@@ -226,12 +242,14 @@ describe('tag-service gap tests', () => {
     createTables(sqlite)
     db = drizzle(sqlite, { schema })
     mockGetDb.mockReturnValue(db)
+    mockGetSqlite.mockReturnValue(sqlite)
   })
 
   afterEach(() => {
     sqlite.close()
     fs.rmSync(tmpDir, { recursive: true, force: true })
     mockGetDb.mockReset()
+    mockGetSqlite.mockReset()
   })
 
   it('setDocumentTags() with empty array clears all tags from a document', async () => {

@@ -23,10 +23,12 @@ vi.mock('electron-log', () => ({
   },
 }))
 
-// Mock getDb to return our test database instance
+// Mock getDb / getSqlite to return our test database instance
 const mockGetDb = vi.fn()
+const mockGetSqlite = vi.fn()
 vi.mock('@main/database/connection', () => ({
   getDb: (...args: unknown[]) => mockGetDb(...args),
+  getSqlite: (...args: unknown[]) => mockGetSqlite(...args),
 }))
 
 const createTables = (sqlite: Database.Database): void => {
@@ -200,12 +202,14 @@ describe('service layer', () => {
     createTables(sqlite)
     db = drizzle(sqlite, { schema })
     mockGetDb.mockReturnValue(db)
+    mockGetSqlite.mockReturnValue(sqlite)
   })
 
   afterEach(() => {
     sqlite.close()
     fs.rmSync(tmpDir, { recursive: true, force: true })
     mockGetDb.mockReset()
+    mockGetSqlite.mockReset()
   })
 
   // ─── Project Service ───────────────────────────────────────────
