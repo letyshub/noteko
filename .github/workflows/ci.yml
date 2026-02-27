@@ -68,6 +68,9 @@ jobs:
       - run: npm ci
       # Rebuild better-sqlite3 for Electron's embedded Node.js (different ABI than system Node.js)
       - run: npm run rebuild:electron
+      # Build the Electron main process (produces .vite/build/index.js)
+      - name: Build main process for e2e
+        run: npm run pretest:e2e
       - name: Install Playwright system dependencies
         run: npx playwright install-deps chromium
       - name: Run e2e tests with Xvfb
