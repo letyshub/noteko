@@ -1,0 +1,62 @@
+version: 2
+
+updates:
+  # npm dependencies
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Warsaw
+    open-pull-requests-limit: 10
+    groups:
+      # Batch minor/patch updates together to reduce PR noise
+      electron-core:
+        patterns:
+          - electron
+          - electron-*
+          - '@electron*'
+      build-tooling:
+        patterns:
+          - vite
+          - vite-*
+          - '@vitejs/*'
+          - vitest
+          - typescript
+          - tsx
+      linting:
+        patterns:
+          - eslint
+          - eslint-*
+          - '@eslint/*'
+          - typescript-eslint
+          - prettier
+      react:
+        patterns:
+          - react
+          - react-*
+          - '@types/react*'
+      ui:
+        patterns:
+          - '@radix-ui/*'
+          - 'tailwindcss'
+          - 'lucide-react'
+          - 'class-variance-authority'
+          - 'clsx'
+          - 'tailwind-merge'
+    ignore:
+      # Major Electron upgrades require manual testing — native module rebuilds,
+      # API changes and packaging need human review
+      - dependency-name: electron
+        update-types: ['version-update:semver-major']
+      # better-sqlite3 major bumps may break native module ABI compatibility
+      - dependency-name: better-sqlite3
+        update-types: ['version-update:semver-major']
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
