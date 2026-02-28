@@ -136,6 +136,20 @@ export interface ChunkedAiGenerationOptions {
   combinePromptTemplate: string
   sendStreamEvent: (event: AiStreamEvent) => void
   saveResult: (fullText: string) => void
+  /**
+   * When true, all chunks are processed in parallel via Promise.all().
+   * Provides a speedup when Ollama is configured with OLLAMA_NUM_PARALLEL > 1,
+   * and eliminates inter-chunk scheduling overhead even when serialized.
+   */
+  parallelMap?: boolean
+  /**
+   * When provided, replaces the LLM combine/reduce pass with a synchronous
+   * merge function. Eliminates one full LLM call for chunked generation.
+   *
+   * @param chunkResults - Raw LLM output strings, one per chunk
+   * @returns Merged result string passed directly to saveResult
+   */
+  mergeResults?: (chunkResults: string[]) => string
 }
 
 /**
@@ -165,60 +179,92 @@ export async function runChunkedAiGeneration(options: ChunkedAiGenerationOptions
     combinePromptTemplate,
     sendStreamEvent,
     saveResult,
+    parallelMap,
+    mergeResults,
   } = options
 
   const totalChunks = chunks.length
 
   log.info(
-    `[chunking-service] Starting chunked ${operationType} generation for document ${documentId} (${totalChunks} chunks)`,
+    `[chunking-service] Starting chunked ${operationType} generation for document ${documentId} (${totalChunks} chunks, parallel=${parallelMap ?? false}, programmaticMerge=${!!mergeResults})`,
   )
 
-  const chunkResults: string[] = []
+  const chunkResults: string[] = new Array(totalChunks)
 
   try {
-    // ─── Map phase: process each chunk independently ───────────
-    for (let i = 0; i < totalChunks; i++) {
-      const chunkPrompt = promptTemplate.replace('{text}', chunks[i])
-      let chunkText = ''
+    // ─── Map phase ─────────────────────────────────────────────
+    if (parallelMap && totalChunks > 1) {
+      // Parallel: fire all chunk requests simultaneously
+      await Promise.all(
+        chunks.map(async (chunk, i) => {
+          const chunkPrompt = promptTemplate.replace('{text}', chunk)
+          let chunkText = ''
 
-      const generator = generate({ model, prompt: chunkPrompt, baseUrl })
+          for await (const token of generate({ model, prompt: chunkPrompt, baseUrl })) {
+            chunkText += token
+            sendStreamEvent({
+              documentId,
+              operationType,
+              chunk: token,
+              done: false,
+              chunkIndex: i,
+              totalChunks,
+            })
+          }
 
-      for await (const token of generator) {
-        chunkText += token
+          chunkResults[i] = chunkText
+        }),
+      )
+    } else {
+      // Sequential: process chunks one at a time
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkPrompt = promptTemplate.replace('{text}', chunks[i])
+        let chunkText = ''
+
+        for await (const token of generate({ model, prompt: chunkPrompt, baseUrl })) {
+          chunkText += token
+          sendStreamEvent({
+            documentId,
+            operationType,
+            chunk: token,
+            done: false,
+            chunkIndex: i,
+            totalChunks,
+          })
+        }
+
+        chunkResults[i] = chunkText
+      }
+    }
+
+    // ─── Reduce phase ──────────────────────────────────────────
+    let finalText: string
+
+    if (mergeResults) {
+      // Programmatic merge: no extra LLM call
+      finalText = mergeResults(chunkResults)
+    } else {
+      // LLM combine pass: merge all chunk results via another generate() call
+      const combinedInput = chunkResults.map((result, i) => `--- Chunk ${i + 1} ---\n${result}`).join('\n\n')
+      const combinePrompt = combinePromptTemplate.replace('{text}', combinedInput)
+      let combineText = ''
+
+      for await (const token of generate({ model, prompt: combinePrompt, baseUrl })) {
+        combineText += token
         sendStreamEvent({
           documentId,
           operationType,
           chunk: token,
           done: false,
-          chunkIndex: i,
+          chunkIndex: totalChunks, // indicates combining phase
           totalChunks,
         })
       }
 
-      chunkResults.push(chunkText)
+      finalText = combineText
     }
 
-    // ─── Reduce phase: combine all chunk results ───────────────
-    const combinedInput = chunkResults.map((result, i) => `--- Chunk ${i + 1} ---\n${result}`).join('\n\n')
-
-    const combinePrompt = combinePromptTemplate.replace('{text}', combinedInput)
-    let finalText = ''
-
-    const combineGenerator = generate({ model, prompt: combinePrompt, baseUrl })
-
-    for await (const token of combineGenerator) {
-      finalText += token
-      sendStreamEvent({
-        documentId,
-        operationType,
-        chunk: token,
-        done: false,
-        chunkIndex: totalChunks, // indicates combining phase
-        totalChunks,
-      })
-    }
-
-    // Save the final combined result
+    // Save the final result
     saveResult(finalText)
 
     // Send done event
