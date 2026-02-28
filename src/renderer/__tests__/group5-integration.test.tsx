@@ -138,24 +138,6 @@ vi.mock('@renderer/components/ui/dropdown-menu', () => ({
 }))
 
 // ---------------------------------------------------------------------------
-// Mock react-pdf and pdf-worker
-// ---------------------------------------------------------------------------
-vi.mock('react-pdf', () => ({
-  Document: ({ children, file, ...props }: any) => (
-    <div data-testid="pdf-document" data-file={file} {...props}>
-      {children}
-    </div>
-  ),
-  Page: ({ pageNumber, scale }: any) => (
-    <div data-testid="pdf-page" data-page={pageNumber} data-scale={scale}>
-      Page {pageNumber}
-    </div>
-  ),
-}))
-
-vi.mock('@renderer/lib/pdf-worker', () => ({}))
-
-// ---------------------------------------------------------------------------
 // Mock resizable panels
 // ---------------------------------------------------------------------------
 vi.mock('@renderer/components/ui/resizable', () => ({
@@ -446,19 +428,11 @@ describe('Integration: noteko-file:// URLs are correctly constructed', () => {
     expect(isTextBased('text/plain')).toBe(false)
 
     // Previewable
-    expect(isPreviewable('pdf')).toBe(true)
+    expect(isPreviewable('pdf')).toBe(false)
     expect(isPreviewable('png')).toBe(true)
     expect(isPreviewable('txt')).toBe(true)
     expect(isPreviewable('exe')).toBe(false)
     expect(isPreviewable('zip')).toBe(false)
-  })
-
-  it('PdfViewer constructs noteko-file:// URL from file_path', async () => {
-    const { PdfViewer } = await import('@renderer/components/documents/pdf-viewer')
-    render(<PdfViewer filePath="/documents/sample.pdf" />)
-
-    const pdfDoc = screen.getByTestId('pdf-document')
-    expect(pdfDoc.getAttribute('data-file')).toBe('noteko-file://localhost/documents/sample.pdf')
   })
 
   it('ImageViewer constructs noteko-file:// URL from file_path', async () => {
