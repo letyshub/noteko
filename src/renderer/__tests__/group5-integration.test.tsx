@@ -138,24 +138,6 @@ vi.mock('@renderer/components/ui/dropdown-menu', () => ({
 }))
 
 // ---------------------------------------------------------------------------
-// Mock react-pdf and pdf-worker
-// ---------------------------------------------------------------------------
-vi.mock('react-pdf', () => ({
-  Document: ({ children, file, ...props }: any) => (
-    <div data-testid="pdf-document" data-file={file} {...props}>
-      {children}
-    </div>
-  ),
-  Page: ({ pageNumber, scale }: any) => (
-    <div data-testid="pdf-page" data-page={pageNumber} data-scale={scale}>
-      Page {pageNumber}
-    </div>
-  ),
-}))
-
-vi.mock('@renderer/lib/pdf-worker', () => ({}))
-
-// ---------------------------------------------------------------------------
 // Mock resizable panels
 // ---------------------------------------------------------------------------
 vi.mock('@renderer/components/ui/resizable', () => ({
@@ -275,7 +257,7 @@ describe('Integration: DocumentPage renders split layout for PDF', () => {
     DocumentPage = mod.DocumentPage
   })
 
-  it('renders DocumentViewer with resizable split layout for a PDF document', async () => {
+  it('renders DocumentViewer with single-column layout for a PDF document', async () => {
     render(<DocumentPage />)
 
     // Wait for document to load
@@ -283,22 +265,13 @@ describe('Integration: DocumentPage renders split layout for PDF', () => {
       expect(screen.getAllByText('integration-test.pdf').length).toBeGreaterThanOrEqual(1)
     })
 
-    // Split layout: ResizablePanelGroup should be present
-    const panelGroup = screen.getByTestId('resizable-panel-group')
-    expect(panelGroup).toBeInTheDocument()
-    expect(panelGroup.getAttribute('data-orientation')).toBe('horizontal')
+    // PDF is not previewable in-app — uses single-column layout (no split panel)
+    expect(screen.queryByTestId('resizable-panel-group')).not.toBeInTheDocument()
 
-    // Two panels (left = preview, right = metadata/ai/text)
-    const panels = screen.getAllByTestId('resizable-panel')
-    expect(panels.length).toBe(2)
+    // "Open in system PDF viewer" button should be present
+    expect(screen.getByRole('button', { name: /open in system pdf viewer/i })).toBeInTheDocument()
 
-    // Resizable handle should be present
-    expect(screen.getByTestId('resizable-handle')).toBeInTheDocument()
-
-    // PDF viewer should be rendered inside left panel
-    expect(screen.getByTestId('pdf-document')).toBeInTheDocument()
-
-    // Extracted text should be in right panel
+    // Extracted text should still be visible
     expect(screen.getByText('Extracted PDF text for integration testing.')).toBeInTheDocument()
   })
 })
@@ -446,19 +419,11 @@ describe('Integration: noteko-file:// URLs are correctly constructed', () => {
     expect(isTextBased('text/plain')).toBe(false)
 
     // Previewable
-    expect(isPreviewable('pdf')).toBe(true)
+    expect(isPreviewable('pdf')).toBe(false)
     expect(isPreviewable('png')).toBe(true)
     expect(isPreviewable('txt')).toBe(true)
     expect(isPreviewable('exe')).toBe(false)
     expect(isPreviewable('zip')).toBe(false)
-  })
-
-  it('PdfViewer constructs noteko-file:// URL from file_path', async () => {
-    const { PdfViewer } = await import('@renderer/components/documents/pdf-viewer')
-    render(<PdfViewer filePath="/documents/sample.pdf" />)
-
-    const pdfDoc = screen.getByTestId('pdf-document')
-    expect(pdfDoc.getAttribute('data-file')).toBe('noteko-file://localhost/documents/sample.pdf')
   })
 
   it('ImageViewer constructs noteko-file:// URL from file_path', async () => {

@@ -63,8 +63,6 @@ describe('document-utils file-type categorization', () => {
   // ─── isPreviewable ──────────────────────────────────────────────
   describe('isPreviewable', () => {
     it('should return true for all previewable extensions', () => {
-      // PDF
-      expect(isPreviewable('pdf')).toBe(true)
       // Images
       expect(isPreviewable('png')).toBe(true)
       expect(isPreviewable('jpg')).toBe(true)
@@ -81,6 +79,8 @@ describe('document-utils file-type categorization', () => {
     it('should return false for unknown extension', () => {
       expect(isPreviewable('xyz')).toBe(false)
       expect(isPreviewable('exe')).toBe(false)
+      // PDF uses single-column layout with external viewer, not the in-app preview
+      expect(isPreviewable('pdf')).toBe(false)
     })
 
     it('should return false for empty string', () => {

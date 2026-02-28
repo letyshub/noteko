@@ -70,34 +70,6 @@ vi.mock('@renderer/store/ui-store', () => ({
 }))
 
 // ---------------------------------------------------------------------------
-// Mock react-pdf
-// ---------------------------------------------------------------------------
-let mockOnLoadSuccess: ((data: { numPages: number }) => void) | undefined
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let mockOnLoadError: ((error: Error) => void) | undefined
-
-vi.mock('react-pdf', () => ({
-  Document: ({ file, onLoadSuccess, onLoadError, children }: any) => {
-    // Store callbacks so tests can trigger them
-    mockOnLoadSuccess = onLoadSuccess
-    mockOnLoadError = onLoadError
-    return (
-      <div data-testid="pdf-document" data-file={file}>
-        {children}
-      </div>
-    )
-  },
-  Page: ({ pageNumber, scale }: any) => (
-    <div data-testid="pdf-page" data-page={pageNumber} data-scale={scale}>
-      Page {pageNumber}
-    </div>
-  ),
-}))
-
-// Mock pdf-worker (side-effect only module)
-vi.mock('@renderer/lib/pdf-worker', () => ({}))
-
-// ---------------------------------------------------------------------------
 // Mock shadcn/ui components for jsdom
 // ---------------------------------------------------------------------------
 vi.mock('@renderer/components/ui/button', () => ({
@@ -223,90 +195,6 @@ const failedDocument: DocumentDetailDto = {
 }
 
 // ===========================================================================
-// PdfViewer Tests
-// ===========================================================================
-describe('PdfViewer', () => {
-  let PdfViewer: any
-
-  beforeEach(async () => {
-    vi.clearAllMocks()
-    mockOnLoadSuccess = undefined
-    mockOnLoadError = undefined
-    const mod = await import('@renderer/components/documents/pdf-viewer')
-    PdfViewer = mod.PdfViewer
-  })
-
-  it('renders Document with noteko-file:// URL', () => {
-    render(<PdfViewer filePath="/files/research-paper.pdf" />)
-
-    const doc = screen.getByTestId('pdf-document')
-    expect(doc).toBeInTheDocument()
-    expect(doc.getAttribute('data-file')).toBe('noteko-file://localhost/files/research-paper.pdf')
-  })
-
-  it('supports page navigation: next increments, previous decrements, displays page number', async () => {
-    const user = userEvent.setup()
-    render(<PdfViewer filePath="/files/research-paper.pdf" />)
-
-    // Simulate PDF load with 5 pages
-    if (mockOnLoadSuccess) {
-      mockOnLoadSuccess({ numPages: 5 })
-    }
-
-    await waitFor(() => {
-      expect(screen.getByText(/page 1 of 5/i)).toBeInTheDocument()
-    })
-
-    // Click next
-    const nextButton = screen.getByRole('button', { name: /next page/i })
-    await user.click(nextButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/page 2 of 5/i)).toBeInTheDocument()
-    })
-
-    // Click previous
-    const prevButton = screen.getByRole('button', { name: /previous page/i })
-    await user.click(prevButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/page 1 of 5/i)).toBeInTheDocument()
-    })
-  })
-
-  it('zoom controls change the scale', async () => {
-    const user = userEvent.setup()
-    render(<PdfViewer filePath="/files/research-paper.pdf" />)
-
-    // Simulate PDF load
-    if (mockOnLoadSuccess) {
-      mockOnLoadSuccess({ numPages: 3 })
-    }
-
-    // Default scale should be 100%
-    await waitFor(() => {
-      expect(screen.getByText('100%')).toBeInTheDocument()
-    })
-
-    // Click zoom in
-    const zoomInButton = screen.getByRole('button', { name: /zoom in/i })
-    await user.click(zoomInButton)
-
-    await waitFor(() => {
-      expect(screen.getByText('110%')).toBeInTheDocument()
-    })
-
-    // Click zoom out
-    const zoomOutButton = screen.getByRole('button', { name: /zoom out/i })
-    await user.click(zoomOutButton)
-
-    await waitFor(() => {
-      expect(screen.getByText('100%')).toBeInTheDocument()
-    })
-  })
-})
-
-// ===========================================================================
 // ImageViewer Tests
 // ===========================================================================
 describe('ImageViewer', () => {
@@ -390,11 +278,11 @@ describe('DocumentPreview', () => {
     DocumentPreview = mod.DocumentPreview
   })
 
-  it('dispatches pdf file type to PdfViewer', () => {
+  it('shows "Open in system app" button for pdf file type', () => {
     render(<DocumentPreview document={pdfDocument} />)
 
-    const pdfDoc = screen.getByTestId('pdf-document')
-    expect(pdfDoc).toBeInTheDocument()
+    expect(screen.getByText(/PDF preview not available/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open in system app/i })).toBeInTheDocument()
   })
 
   it('dispatches image file type to ImageViewer', () => {
@@ -448,7 +336,7 @@ describe('DocumentViewer split layout', () => {
     DocumentViewer = mod.DocumentViewer
   })
 
-  it('renders ResizablePanelGroup with two panels for PDF document', () => {
+  it('renders single-column layout (no split) for PDF document', () => {
     render(
       <DocumentViewer
         document={pdfDocument}
@@ -459,15 +347,10 @@ describe('DocumentViewer split layout', () => {
       />,
     )
 
-    const panelGroup = screen.getByTestId('resizable-panel-group')
-    expect(panelGroup).toBeInTheDocument()
-    expect(panelGroup.getAttribute('data-orientation')).toBe('horizontal')
-
-    const panels = screen.getAllByTestId('resizable-panel')
-    expect(panels.length).toBe(2)
-
-    const handle = screen.getByTestId('resizable-handle')
-    expect(handle).toBeInTheDocument()
+    // PDF is not previewable in-app — uses single-column layout
+    expect(screen.queryByTestId('resizable-panel-group')).not.toBeInTheDocument()
+    // "Open in system PDF viewer" button should be present
+    expect(screen.getByRole('button', { name: /open in system pdf viewer/i })).toBeInTheDocument()
   })
 
   it('renders single column (no split) for unsupported file type', () => {

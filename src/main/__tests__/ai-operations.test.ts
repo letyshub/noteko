@@ -89,6 +89,8 @@ vi.mock('@main/services', () => ({
   parseQuizQuestions: (...args: unknown[]) => mockParseQuizQuestions(...args),
   validateQuizQuestion: (...args: unknown[]) => mockValidateQuizQuestion(...args),
   buildQuizPrompt: (...args: unknown[]) => mockBuildQuizPrompt(...args),
+  mergeQuizChunkResults: vi.fn((chunks: string[]) => chunks[0] ?? ''),
+  calcNumPredict: vi.fn(() => 2048),
   QUIZ_GENERATION_PROMPT: 'mock-quiz-prompt {questionCount} {questionTypes} {difficulty} {text}',
   COMBINE_QUIZ_QUESTIONS_PROMPT: 'mock-combine-quiz-prompt {questionCount} {text}',
   QUIZ_RETRY_PROMPT: 'mock-retry-prompt {error} {questionCount} {questionTypes} {difficulty} {text}',

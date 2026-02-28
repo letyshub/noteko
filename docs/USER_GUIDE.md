@@ -165,6 +165,8 @@ Supported formats: **PDF**, **Images** (PNG, JPG, JPEG), **Word documents** (DOC
 2. Drag and drop files onto the document list, or click **Upload** to open a file picker.
 3. Multiple files can be uploaded at once.
 
+**Example:** Upload `Deep Learning with PyTorch.pdf`, `Machine Learning for Business.pdf`, or any DOCX lecture notes.
+
 After upload, Noteko automatically:
 
 1. Parses the document text (using PDF parsing, OCR for images, or DOCX conversion).
@@ -174,12 +176,16 @@ After upload, Noteko automatically:
 
 ### Viewing Documents
 
-Click any document in the list to open it. The document view has two panels:
+Click any document in the list to open it.
 
-- **Left panel** — Document preview (PDF viewer, image viewer, or text preview for DOCX).
-- **Right panel** — Metadata, AI analysis, and chat.
+**Images and text-based files** (PNG, JPG, DOCX, TXT, MD, CSV) open in a two-panel view:
 
-The right panel has tabs:
+- **Left panel** — In-app preview (image viewer or text preview).
+- **Right panel** — Metadata, tags, AI analysis, and chat.
+
+**PDF files** open in a single-panel view with full-width AI analysis. A button at the top lets you open the file in your system's default PDF viewer (e.g., Adobe Reader, Edge, Preview).
+
+The right panel has two tabs:
 
 - **Analysis** — AI-generated summaries, key points, key terms, and quiz generation.
 - **Chat** — Ask questions about the document.
@@ -218,7 +224,7 @@ Generates a concise summary of the document.
    - **Academic** — Formal tone suitable for academic review.
 3. Click **Summarize**.
 
-The summary streams in real-time as the model generates it. For long documents, a chunk progress indicator shows how many sections have been processed.
+The summary streams in real-time as the model generates it. For long documents (e.g., a 200-page book like _AI as a Service_ or _Deep Learning for Vision Systems_), a progress indicator shows the percentage of sections processed.
 
 ---
 
@@ -252,7 +258,7 @@ Ask questions about the document in natural language.
 
 **Tips:**
 
-- Be specific: "What are the three main causes described in chapter 2?" works better than "What's this about?"
+- Be specific. For example, with _Machine Learning for Business_: "What evaluation metric does chapter 3 recommend for imbalanced datasets?" works better than "What's this about?"
 - Use chat to clarify terms from the Key Terms section.
 - Chat history is saved per document and persists across sessions.
 - Click the **trash icon** to clear the conversation history for a document.
@@ -386,4 +392,4 @@ Then go to **Settings → Ollama** and click **Test Connection** to refresh the 
 
 - Switch to a smaller/faster model in **Settings → Ollama** (e.g., `phi3` or `mistral`).
 - Close other GPU-intensive applications.
-- Large documents are processed in chunks — the progress indicator shows how far along generation is.
+- Large documents are processed in chunks — the progress indicator shows the percentage complete (e.g., "Analyzing... 50%").

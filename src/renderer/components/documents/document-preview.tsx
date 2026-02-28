@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Loader2, FileWarning, FileQuestion } from 'lucide-react'
+import { Loader2, FileWarning, FileQuestion, FileText, ExternalLink } from 'lucide-react'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Skeleton } from '@renderer/components/ui/skeleton'
-import { PdfViewer } from '@renderer/components/documents/pdf-viewer'
+import { Button } from '@renderer/components/ui/button'
 import { ImageViewer } from '@renderer/components/documents/image-viewer'
 import { isPdf, isImage, isTextBased, buildFileUrl } from '@renderer/components/documents/document-utils'
 import type { DocumentDetailDto } from '@shared/types'
@@ -39,7 +39,7 @@ export function DocumentPreview({ document }: DocumentPreviewProps) {
 
   // Dispatch to appropriate viewer based on file type
   if (isPdf(file_type)) {
-    return <PdfViewer filePath={file_path} />
+    return <OpenInSystemApp filePath={file_path} />
   }
 
   if (isImage(file_type)) {
@@ -56,6 +56,37 @@ export function DocumentPreview({ document }: DocumentPreviewProps) {
       <FileQuestion className="h-10 w-10 text-muted-foreground" />
       <p className="text-sm font-medium">Preview not available</p>
       <p className="text-xs text-muted-foreground">This file type does not support preview.</p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Internal component: OpenInSystemApp
+// ---------------------------------------------------------------------------
+
+function OpenInSystemApp({ filePath }: { filePath: string }) {
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleOpen() {
+    setError(null)
+    const result = await window.electronAPI['file:open-in-system-app'](filePath)
+    if (!result.success) {
+      setError(result.error.message)
+    }
+  }
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+      <FileText className="h-12 w-12 text-muted-foreground" />
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-medium">PDF preview not available</p>
+        <p className="text-xs text-muted-foreground">Open the file in your system PDF viewer.</p>
+      </div>
+      <Button onClick={handleOpen} variant="outline" size="sm" className="gap-2">
+        <ExternalLink className="h-4 w-4" />
+        Open in system app
+      </Button>
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )
 }

@@ -167,6 +167,32 @@ describe('ollama-service', () => {
     })
   })
 
+  // ─── ollamaOptions passthrough ────────────────────────────────
+
+  describe('ollamaOptions', () => {
+    it('should include ollamaOptions under the "options" key in the request body', async () => {
+      mockFetch.mockResolvedValueOnce(createStreamResponse([{ response: 'ok', done: true }]))
+
+      const { generate } = await import('@main/services/ollama-service')
+      await collectChunks(
+        generate({ model: 'llama3', prompt: 'test', ollamaOptions: { temperature: 0, num_predict: 500 } }),
+      )
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body as string)
+      expect(body.options).toEqual({ temperature: 0, num_predict: 500 })
+    })
+
+    it('should omit the "options" key when ollamaOptions is not provided', async () => {
+      mockFetch.mockResolvedValueOnce(createStreamResponse([{ response: 'ok', done: true }]))
+
+      const { generate } = await import('@main/services/ollama-service')
+      await collectChunks(generate({ model: 'llama3', prompt: 'test' }))
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body as string)
+      expect(body.options).toBeUndefined()
+    })
+  })
+
   // ─── Text truncation ──────────────────────────────────────────
 
   describe('text truncation', () => {

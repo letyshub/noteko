@@ -16,31 +16,8 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   } as any
 }
 
-// DOMMatrix is required by pdfjs-dist but not provided by jsdom
-if (typeof globalThis.DOMMatrix === 'undefined') {
-  globalThis.DOMMatrix = class DOMMatrix {
-    constructor() {
-      return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
-    }
-  } as any
-}
-
 // ---------------------------------------------------------------------------
-// 1. Smoke test: react-pdf Document and Page can be imported
-// ---------------------------------------------------------------------------
-describe('react-pdf smoke test', () => {
-  it('exports Document and Page components', async () => {
-    const reactPdf = await import('react-pdf')
-    expect(reactPdf.Document).toBeDefined()
-    expect(reactPdf.Page).toBeDefined()
-    // React components using forwardRef are objects with a $$typeof symbol, not plain functions
-    expect(reactPdf.Document).toBeTruthy()
-    expect(reactPdf.Page).toBeTruthy()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// 2. Smoke test: ResizablePanelGroup, ResizablePanel, ResizableHandle render
+// 1. Smoke test: ResizablePanelGroup, ResizablePanel, ResizableHandle render
 // ---------------------------------------------------------------------------
 describe('shadcn/ui resizable components', () => {
   it('renders ResizablePanelGroup with panels and handle without errors', async () => {

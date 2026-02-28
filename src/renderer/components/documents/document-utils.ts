@@ -43,7 +43,7 @@ export function isTextBased(fileType: string): boolean {
 
 /** Check if the file type can be previewed in the document viewer. */
 export function isPreviewable(fileType: string): boolean {
-  return isPdf(fileType) || isImage(fileType) || isTextBased(fileType)
+  return isImage(fileType) || isTextBased(fileType)
 }
 
 /**

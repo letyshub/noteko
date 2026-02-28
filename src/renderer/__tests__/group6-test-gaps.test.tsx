@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { DocumentDetailDto, DocumentContentDto, DocumentDto } from '@shared/types'
 
@@ -82,34 +82,6 @@ vi.mock('@renderer/store/ui-store', () => ({
       setCurrentPageTitle: vi.fn(),
     }),
 }))
-
-// ---------------------------------------------------------------------------
-// Mock react-pdf
-// ---------------------------------------------------------------------------
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-let mockOnLoadSuccess: ((data: { numPages: number }) => void) | undefined
-let mockOnLoadError: ((error: Error) => void) | undefined
-
-vi.mock('react-pdf', () => ({
-  Document: ({ file, onLoadSuccess, onLoadError, loading, error, children }: any) => {
-    mockOnLoadSuccess = onLoadSuccess
-    mockOnLoadError = onLoadError
-    return (
-      <div data-testid="pdf-document" data-file={file}>
-        {loading}
-        {error}
-        {children}
-      </div>
-    )
-  },
-  Page: ({ pageNumber, scale }: any) => (
-    <div data-testid="pdf-page" data-page={pageNumber} data-scale={scale}>
-      Page {pageNumber}
-    </div>
-  ),
-}))
-
-vi.mock('@renderer/lib/pdf-worker', () => ({}))
 
 // ---------------------------------------------------------------------------
 // Mock shadcn/ui components for jsdom
@@ -273,43 +245,7 @@ describe('ImageViewer drag-to-pan interaction', () => {
 })
 
 // ===========================================================================
-// Test 2: PdfViewer error state
-// ===========================================================================
-describe('PdfViewer error state', () => {
-  let PdfViewer: any
-
-  beforeEach(async () => {
-    vi.clearAllMocks()
-    mockOnLoadSuccess = undefined
-    mockOnLoadError = undefined
-    const mod = await import('@renderer/components/documents/pdf-viewer')
-    PdfViewer = mod.PdfViewer
-  })
-
-  it('displays error message when PDF fails to load', async () => {
-    render(<PdfViewer filePath="/files/invalid.pdf" />)
-
-    // Trigger the error callback
-    if (mockOnLoadError) {
-      act(() => {
-        mockOnLoadError!(new Error('Failed to load PDF'))
-      })
-    }
-
-    await waitFor(() => {
-      // The error state shows a heading "Failed to load PDF" and the error details below
-      const headings = screen.getAllByText(/failed to load pdf/i)
-      expect(headings.length).toBeGreaterThanOrEqual(1)
-
-      // Verify the error icon section is shown (the component renders AlertCircle)
-      const errorContainer = headings[0].closest('div')
-      expect(errorContainer).toBeTruthy()
-    })
-  })
-})
-
-// ===========================================================================
-// Test 3: DocumentPreview text-based fetch error path
+// Test 2: DocumentPreview text-based fetch error path
 // ===========================================================================
 describe('DocumentPreview text-based file fetch error', () => {
   let DocumentPreview: any
@@ -413,11 +349,11 @@ describe('DocumentViewer pending/processing status placeholders', () => {
     DocumentViewer = mod.DocumentViewer
   })
 
-  it('shows "not yet processed" in text panel and processing state in preview for pending document', () => {
+  it('shows "not yet processed" in text panel and processing state in preview for pending document', async () => {
     const pendingDoc: DocumentDetailDto = {
-      ...pdfDocument,
+      ...textDocument,
       id: 99,
-      name: 'uploading.pdf',
+      name: 'uploading.txt',
       processing_status: 'pending',
       content: null,
     }
@@ -432,7 +368,7 @@ describe('DocumentViewer pending/processing status placeholders', () => {
       />,
     )
 
-    // Should still have split layout (pdf is previewable)
+    // Should have split layout (txt is previewable)
     expect(screen.getByTestId('resizable-panel-group')).toBeInTheDocument()
 
     // Right panel should show "not yet processed"
@@ -506,7 +442,7 @@ describe('DocumentViewer ResizablePanel minimum sizes', () => {
   it('sets minSize attributes on both resizable panels to prevent collapse', () => {
     render(
       <DocumentViewer
-        document={pdfDocument}
+        document={textDocument}
         onRetry={vi.fn()}
         onSummarize={vi.fn()}
         onExtractKeyPoints={vi.fn()}

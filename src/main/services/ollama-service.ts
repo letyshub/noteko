@@ -42,6 +42,10 @@ export interface GenerateOptions {
   model: string
   prompt: string
   baseUrl?: string
+  ollamaOptions?: {
+    temperature?: number
+    num_predict?: number
+  }
 }
 
 export interface ChatOptions {
@@ -162,13 +166,13 @@ function isTransientError(error: unknown): boolean {
  * @yields Individual text chunks as they arrive
  */
 export async function* generate(options: GenerateOptions): AsyncGenerator<string> {
-  const { model, baseUrl } = options
+  const { model, baseUrl, ollamaOptions } = options
   const url = baseUrl ?? DEFAULT_OLLAMA_URL
 
   // Truncate prompt to MAX_TEXT_LENGTH
   const prompt = options.prompt.length > MAX_TEXT_LENGTH ? options.prompt.slice(0, MAX_TEXT_LENGTH) : options.prompt
 
-  const body = JSON.stringify({ model, prompt, stream: true })
+  const body = JSON.stringify({ model, prompt, stream: true, options: ollamaOptions })
 
   let lastError: unknown
   let response: Response | null = null

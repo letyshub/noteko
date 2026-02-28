@@ -8,7 +8,7 @@
  */
 
 import log from 'electron-log'
-import { RAW_TEXT_MAX_LENGTH, QUIZ_GENERATION_PROMPT } from './ai-prompts'
+import { RAW_TEXT_MAX_LENGTH, QUIZ_GENERATION_PROMPT, buildQuizExamples } from './ai-prompts'
 import type { QuizGenerationOptions } from '@shared/types'
 
 // ---------------------------------------------------------------------------
@@ -249,6 +249,25 @@ export function mergeQuizChunkResults(chunkTexts: string[], questionCount: numbe
 }
 
 // ---------------------------------------------------------------------------
+// calcNumPredict
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimate the Ollama `num_predict` (max output tokens) for a quiz generation
+ * request. Caps generation to prevent runaway output while leaving enough
+ * headroom for all requested questions.
+ *
+ * ~250 tokens per question (accounts for JSON structure, options, explanation)
+ * + 500 tokens overhead for the array wrapper and safety margin.
+ *
+ * @param questionCount - Number of questions to generate
+ * @returns Recommended num_predict value
+ */
+export function calcNumPredict(questionCount: number): number {
+  return questionCount * 250 + 500
+}
+
+// ---------------------------------------------------------------------------
 // buildQuizPrompt
 // ---------------------------------------------------------------------------
 
@@ -258,16 +277,20 @@ export function mergeQuizChunkResults(chunkTexts: string[], questionCount: numbe
  * Calculates the available text budget by subtracting the prompt template
  * overhead (with all placeholders replaced except {text}) from RAW_TEXT_MAX_LENGTH.
  * Truncates the document text to fit within the budget.
+ * Only includes examples for the question types being generated.
  *
  * @param documentText - The raw document text
  * @param options - Quiz generation configuration
  * @returns Fully constructed prompt string
  */
 export function buildQuizPrompt(documentText: string, options: QuizGenerationOptions): string {
+  const examples = buildQuizExamples(options.questionTypes)
+
   // Calculate the template overhead (everything except {text})
   const templateWithoutText = QUIZ_GENERATION_PROMPT.replace('{questionCount}', String(options.questionCount))
     .replace('{questionTypes}', options.questionTypes)
     .replace('{difficulty}', options.difficulty)
+    .replace('{examples}', examples)
     .replace('{text}', '')
 
   // Dynamic text budget: total max length minus the template overhead
@@ -290,6 +313,7 @@ export function buildQuizPrompt(documentText: string, options: QuizGenerationOpt
   const prompt = QUIZ_GENERATION_PROMPT.replace('{questionCount}', String(options.questionCount))
     .replace('{questionTypes}', options.questionTypes)
     .replace('{difficulty}', options.difficulty)
+    .replace('{examples}', examples)
     .replace('{text}', truncatedText)
 
   log.info(

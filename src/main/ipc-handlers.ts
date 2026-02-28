@@ -5,7 +5,7 @@
  * results in IpcResult format for consistent error handling.
  */
 
-import { ipcMain } from 'electron'
+import { ipcMain, shell } from 'electron'
 import log from 'electron-log'
 import { IPC_CHANNELS, createIpcSuccess, createIpcError } from '@shared/ipc'
 import type {
@@ -83,6 +83,7 @@ import {
   validateQuizQuestion,
   buildQuizPrompt,
   mergeQuizChunkResults,
+  calcNumPredict,
   searchDocuments,
   saveRecentSearch,
   listRecentSearches,
@@ -119,6 +120,7 @@ import {
   COMBINE_QUIZ_QUESTIONS_PROMPT,
   QUIZ_RETRY_PROMPT,
   getSummaryPrompt,
+  buildQuizExamples,
 } from '@main/services/ai-prompts'
 import { CHUNK_SIZE } from '@main/services/chunking-service'
 
@@ -295,6 +297,7 @@ async function runQuizGeneration(
   options: QuizGenerationOptions,
   rawText: string,
   baseUrl?: string,
+  ollamaOptions?: { temperature?: number; num_predict?: number },
 ): Promise<void> {
   const maxRetries = 2
   let lastError = ''
@@ -309,7 +312,7 @@ async function runQuizGeneration(
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       fullText = ''
 
-      const generator = generate({ model, prompt: currentPrompt, baseUrl })
+      const generator = generate({ model, prompt: currentPrompt, baseUrl, ollamaOptions })
 
       for await (const chunk of generator) {
         fullText += chunk
@@ -733,6 +736,18 @@ export function registerIpcHandlers(): void {
   })
 
   // ─── Files ───────────────────────────────────────────────────
+  ipcMain.handle(IPC_CHANNELS.FILE_OPEN_IN_SYSTEM_APP, async (_event, filePath: string) => {
+    try {
+      const error = await shell.openPath(filePath)
+      if (error) {
+        return createIpcError('FILE_OPEN_IN_SYSTEM_APP_ERROR', error)
+      }
+      return createIpcSuccess(undefined)
+    } catch (err) {
+      return createIpcError('FILE_OPEN_IN_SYSTEM_APP_ERROR', err instanceof Error ? err.message : 'Unknown error')
+    }
+  })
+
   ipcMain.handle(IPC_CHANNELS.FILE_OPEN_DIALOG, async () => {
     try {
       const filePaths = await openFilePickerDialog()
@@ -1013,8 +1028,11 @@ export function registerIpcHandlers(): void {
         const quizPromptTemplate = QUIZ_GENERATION_PROMPT.replace('{questionCount}', String(options.questionCount))
           .replace('{questionTypes}', options.questionTypes)
           .replace('{difficulty}', options.difficulty)
+          .replace('{examples}', buildQuizExamples(options.questionTypes))
 
         const combinePrompt = COMBINE_QUIZ_QUESTIONS_PROMPT.replace('{questionCount}', String(options.questionCount))
+
+        const chunkOllamaOptions = { temperature: 0, num_predict: calcNumPredict(options.questionCount) }
 
         runChunkedAiGeneration({
           documentId,
@@ -1025,6 +1043,7 @@ export function registerIpcHandlers(): void {
           promptTemplate: quizPromptTemplate,
           combinePromptTemplate: combinePrompt,
           parallelMap: true,
+          ollamaOptions: chunkOllamaOptions,
           mergeResults: (chunkTexts) => mergeQuizChunkResults(chunkTexts, options.questionCount),
           sendStreamEvent,
           saveResult: (finalText: string) => {
@@ -1067,7 +1086,8 @@ export function registerIpcHandlers(): void {
       } else {
         // Short document: single-pass generation with quiz-specific helper
         const prompt = buildQuizPrompt(rawText, options)
-        runQuizGeneration(documentId, result.document.name, model, prompt, options, rawText, baseUrl)
+        const ollamaOptions = { temperature: 0, num_predict: calcNumPredict(options.questionCount) }
+        runQuizGeneration(documentId, result.document.name, model, prompt, options, rawText, baseUrl, ollamaOptions)
       }
 
       return createIpcSuccess(undefined as void)
