@@ -82,6 +82,7 @@ import {
   parseQuizQuestions,
   validateQuizQuestion,
   buildQuizPrompt,
+  mergeQuizChunkResults,
   searchDocuments,
   saveRecentSearch,
   listRecentSearches,
@@ -1023,6 +1024,8 @@ export function registerIpcHandlers(): void {
           chunks,
           promptTemplate: quizPromptTemplate,
           combinePromptTemplate: combinePrompt,
+          parallelMap: true,
+          mergeResults: (chunkTexts) => mergeQuizChunkResults(chunkTexts, options.questionCount),
           sendStreamEvent,
           saveResult: (finalText: string) => {
             // Parse and validate quiz questions from combined result

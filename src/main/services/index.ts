@@ -73,7 +73,12 @@ export { getSetting, setSetting, getAllSettings } from './settings-service'
 export { splitTextIntoChunks, runChunkedAiGeneration } from './chunking-service'
 
 // Quiz generation AI operations
-export { parseQuizQuestions, validateQuizQuestion, buildQuizPrompt } from './quiz-generation-service'
+export {
+  parseQuizQuestions,
+  validateQuizQuestion,
+  buildQuizPrompt,
+  mergeQuizChunkResults,
+} from './quiz-generation-service'
 
 // AI prompt constants
 export {
