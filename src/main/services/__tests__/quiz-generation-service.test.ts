@@ -187,6 +187,114 @@ describe('quiz-generation-service', () => {
     })
   })
 
+  // ─── mergeQuizChunkResults ─────────────────────────────────
+
+  describe('mergeQuizChunkResults', () => {
+    const makeChunkText = (questions: object[]) => JSON.stringify(questions)
+
+    const mcq = {
+      question: 'What is the capital of France?',
+      type: 'multiple-choice',
+      options: ['London', 'Paris', 'Berlin', 'Madrid'],
+      correct_answer: 'Paris',
+      explanation: 'Paris is the capital.',
+      difficulty: 'easy',
+    }
+
+    const tf = {
+      question: 'The Earth is flat.',
+      type: 'true-false',
+      options: ['True', 'False'],
+      correct_answer: 'False',
+      explanation: null,
+      difficulty: 'easy',
+    }
+
+    const sa = {
+      question: 'Name the process by which plants make food.',
+      type: 'short-answer',
+      options: null,
+      correct_answer: 'Photosynthesis',
+      explanation: null,
+      difficulty: 'medium',
+    }
+
+    it('should combine questions from multiple chunk texts', async () => {
+      const { mergeQuizChunkResults } = await import('@main/services/quiz-generation-service')
+
+      const chunk1 = makeChunkText([mcq])
+      const chunk2 = makeChunkText([tf])
+      const result = mergeQuizChunkResults([chunk1, chunk2], 10)
+
+      const parsed = JSON.parse(result)
+      expect(parsed).toHaveLength(2)
+      expect(parsed[0].question).toBe(mcq.question)
+      expect(parsed[1].question).toBe(tf.question)
+    })
+
+    it('should deduplicate questions with identical text (case-insensitive)', async () => {
+      const { mergeQuizChunkResults } = await import('@main/services/quiz-generation-service')
+
+      const duplicate = { ...mcq }
+      const chunk1 = makeChunkText([mcq])
+      const chunk2 = makeChunkText([duplicate]) // same question in second chunk
+
+      const result = mergeQuizChunkResults([chunk1, chunk2], 10)
+      const parsed = JSON.parse(result)
+
+      expect(parsed).toHaveLength(1)
+    })
+
+    it('should trim to questionCount', async () => {
+      const { mergeQuizChunkResults } = await import('@main/services/quiz-generation-service')
+
+      const chunk1 = makeChunkText([mcq, tf, sa])
+
+      const result = mergeQuizChunkResults([chunk1], 2)
+      const parsed = JSON.parse(result)
+
+      expect(parsed).toHaveLength(2)
+      expect(parsed[0].question).toBe(mcq.question)
+      expect(parsed[1].question).toBe(tf.question)
+    })
+
+    it('should skip invalid chunk texts gracefully', async () => {
+      const { mergeQuizChunkResults } = await import('@main/services/quiz-generation-service')
+
+      const chunk1 = 'this is not JSON'
+      const chunk2 = makeChunkText([mcq])
+
+      const result = mergeQuizChunkResults([chunk1, chunk2], 10)
+      const parsed = JSON.parse(result)
+
+      expect(parsed).toHaveLength(1)
+      expect(parsed[0].question).toBe(mcq.question)
+    })
+
+    it('should return empty JSON array when all chunks are invalid', async () => {
+      const { mergeQuizChunkResults } = await import('@main/services/quiz-generation-service')
+
+      const result = mergeQuizChunkResults(['bad', 'also bad', '{}'], 10)
+      const parsed = JSON.parse(result)
+
+      expect(Array.isArray(parsed)).toBe(true)
+      expect(parsed).toHaveLength(0)
+    })
+
+    it('should skip invalid questions within a valid chunk', async () => {
+      const { mergeQuizChunkResults } = await import('@main/services/quiz-generation-service')
+
+      const invalidQ = { question: 'Missing type', correct_answer: 'x', difficulty: 'easy' }
+      const chunk = makeChunkText([invalidQ, mcq])
+
+      const result = mergeQuizChunkResults([chunk], 10)
+      const parsed = JSON.parse(result)
+
+      expect(parsed).toHaveLength(1)
+      expect(parsed[0].question).toBe(mcq.question)
+    })
+  })
+
   // ─── buildQuizPrompt ───────────────────────────────────────
 
   describe('buildQuizPrompt', () => {
