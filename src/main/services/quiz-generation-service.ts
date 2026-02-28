@@ -208,6 +208,47 @@ export function validateQuizQuestion(q: unknown): ValidatedQuizQuestion | null {
 }
 
 // ---------------------------------------------------------------------------
+// mergeQuizChunkResults
+// ---------------------------------------------------------------------------
+
+/**
+ * Merge quiz questions from multiple chunk LLM outputs into a single JSON string.
+ *
+ * Parses and validates each chunk's output, deduplicates by question text,
+ * and trims to `questionCount`. This replaces the LLM combine/reduce pass
+ * for chunked quiz generation, eliminating one full LLM call.
+ *
+ * @param chunkTexts - Raw LLM output strings, one per chunk
+ * @param questionCount - Maximum number of questions to return
+ * @returns JSON string of validated, deduplicated questions (may be empty array)
+ */
+export function mergeQuizChunkResults(chunkTexts: string[], questionCount: number): string {
+  const allQuestions: ValidatedQuizQuestion[] = []
+  const seen = new Set<string>()
+
+  for (const text of chunkTexts) {
+    const parsed = parseQuizQuestions(text)
+    if (!parsed) continue
+
+    for (const q of parsed) {
+      const validated = validateQuizQuestion(q)
+      if (!validated) continue
+
+      const key = validated.question.toLowerCase().trim()
+      if (!seen.has(key)) {
+        seen.add(key)
+        allQuestions.push(validated)
+      }
+    }
+  }
+
+  log.info(
+    `[quiz-generation] Merged ${allQuestions.length} unique questions from ${chunkTexts.length} chunks (limit: ${questionCount})`,
+  )
+  return JSON.stringify(allQuestions.slice(0, questionCount))
+}
+
+// ---------------------------------------------------------------------------
 // buildQuizPrompt
 // ---------------------------------------------------------------------------
 
