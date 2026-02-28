@@ -11,6 +11,7 @@
 
 import log from 'electron-log'
 import { generate } from './ollama-service'
+import type { GenerateOptions } from './ollama-service'
 import type { AiStreamEvent } from '@shared/types'
 
 // ---------------------------------------------------------------------------
@@ -150,6 +151,8 @@ export interface ChunkedAiGenerationOptions {
    * @returns Merged result string passed directly to saveResult
    */
   mergeResults?: (chunkResults: string[]) => string
+  /** Ollama model parameters forwarded to every generate() call. */
+  ollamaOptions?: GenerateOptions['ollamaOptions']
 }
 
 /**
@@ -181,6 +184,7 @@ export async function runChunkedAiGeneration(options: ChunkedAiGenerationOptions
     saveResult,
     parallelMap,
     mergeResults,
+    ollamaOptions,
   } = options
 
   const totalChunks = chunks.length
@@ -200,7 +204,7 @@ export async function runChunkedAiGeneration(options: ChunkedAiGenerationOptions
           const chunkPrompt = promptTemplate.replace('{text}', chunk)
           let chunkText = ''
 
-          for await (const token of generate({ model, prompt: chunkPrompt, baseUrl })) {
+          for await (const token of generate({ model, prompt: chunkPrompt, baseUrl, ollamaOptions })) {
             chunkText += token
             sendStreamEvent({
               documentId,
@@ -221,7 +225,7 @@ export async function runChunkedAiGeneration(options: ChunkedAiGenerationOptions
         const chunkPrompt = promptTemplate.replace('{text}', chunks[i])
         let chunkText = ''
 
-        for await (const token of generate({ model, prompt: chunkPrompt, baseUrl })) {
+        for await (const token of generate({ model, prompt: chunkPrompt, baseUrl, ollamaOptions })) {
           chunkText += token
           sendStreamEvent({
             documentId,
@@ -249,7 +253,7 @@ export async function runChunkedAiGeneration(options: ChunkedAiGenerationOptions
       const combinePrompt = combinePromptTemplate.replace('{text}', combinedInput)
       let combineText = ''
 
-      for await (const token of generate({ model, prompt: combinePrompt, baseUrl })) {
+      for await (const token of generate({ model, prompt: combinePrompt, baseUrl, ollamaOptions })) {
         combineText += token
         sendStreamEvent({
           documentId,

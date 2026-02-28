@@ -88,7 +88,7 @@ export function AiActionsPanel({
           <p className="text-xs text-muted-foreground">
             {chunkProgress.current >= chunkProgress.total
               ? 'Combining results...'
-              : `Processing chunk ${chunkProgress.current + 1} of ${chunkProgress.total}`}
+              : `Analyzing... ${Math.round(((chunkProgress.current + 1) / chunkProgress.total) * 100)}%`}
           </p>
           <Progress
             value={

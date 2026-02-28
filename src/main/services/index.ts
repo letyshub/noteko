@@ -78,6 +78,7 @@ export {
   validateQuizQuestion,
   buildQuizPrompt,
   mergeQuizChunkResults,
+  calcNumPredict,
 } from './quiz-generation-service'
 
 // AI prompt constants

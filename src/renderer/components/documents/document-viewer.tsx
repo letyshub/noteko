@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { ArrowLeft, RotateCcw, FileWarning, ChevronRight, Sparkles, MessageCircle } from 'lucide-react'
+import { ArrowLeft, RotateCcw, FileWarning, ChevronRight, Sparkles, MessageCircle, ExternalLink } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '@renderer/components/ui/button'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
@@ -10,7 +10,7 @@ import { DocumentPreview } from '@renderer/components/documents/document-preview
 import { AiActionsPanel } from '@renderer/components/ai/ai-actions-panel'
 import { ChatPanel } from '@renderer/components/ai/chat-panel'
 import { TagSelector } from '@renderer/components/tags/tag-selector'
-import { isPreviewable } from '@renderer/components/documents/document-utils'
+import { isPreviewable, isPdf } from '@renderer/components/documents/document-utils'
 import { useTagStore } from '@renderer/store'
 import type { DocumentDetailDto, KeyTerm, SummaryStyle, QuizDto, TagDto } from '@shared/types'
 
@@ -240,6 +240,19 @@ export function DocumentViewer({
           <div className="flex flex-col gap-4 pb-4">
             <DocumentMetadata document={document} />
             {tagsSection}
+
+            {/* PDF: open in system app */}
+            {isPdf(document.file_type) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit gap-2"
+                onClick={() => window.electronAPI['file:open-in-system-app'](document.file_path)}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open in system PDF viewer
+              </Button>
+            )}
 
             {/* Failed status: retry button */}
             {isFailed && (

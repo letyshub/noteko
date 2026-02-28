@@ -300,43 +300,103 @@ describe('quiz-generation-service', () => {
   describe('buildQuizPrompt', () => {
     it('should calculate dynamic text budget correctly (MAX_TEXT_LENGTH minus prompt overhead)', async () => {
       const { buildQuizPrompt } = await import('@main/services/quiz-generation-service')
-      const { RAW_TEXT_MAX_LENGTH, QUIZ_GENERATION_PROMPT } = await import('@main/services/ai-prompts')
+      const { RAW_TEXT_MAX_LENGTH, QUIZ_GENERATION_PROMPT, buildQuizExamples } =
+        await import('@main/services/ai-prompts')
 
-      // Create a document text longer than what the budget allows
+      const questionTypes = 'multiple-choice'
       const longText = 'A'.repeat(RAW_TEXT_MAX_LENGTH + 1000)
 
       const prompt = buildQuizPrompt(longText, {
         questionCount: 5,
-        questionTypes: 'all',
+        questionTypes,
         difficulty: 'medium',
       })
 
-      // The prompt should exist and be a string
       expect(typeof prompt).toBe('string')
 
-      // The total prompt length should not exceed RAW_TEXT_MAX_LENGTH
-      // plus the template overhead (since the template is part of the budget)
-      // More precisely: the document text portion should be truncated
-      // so that the full prompt stays within a reasonable bound.
-      //
-      // Calculate expected budget: RAW_TEXT_MAX_LENGTH minus the prompt
-      // template length (with placeholders replaced by actual config values)
       const templateWithoutText = QUIZ_GENERATION_PROMPT.replace('{questionCount}', '5')
-        .replace('{questionTypes}', 'all')
+        .replace('{questionTypes}', questionTypes)
         .replace('{difficulty}', 'medium')
+        .replace('{examples}', buildQuizExamples(questionTypes))
         .replace('{text}', '')
 
       const expectedBudget = RAW_TEXT_MAX_LENGTH - templateWithoutText.length
       expect(expectedBudget).toBeGreaterThan(0)
 
-      // The document text in the prompt should be truncated to the budget
-      // We can verify that the long text was truncated by checking
-      // the prompt does NOT contain the full longText
       expect(prompt).not.toContain(longText)
 
-      // But it should contain the truncated portion
       const truncatedText = longText.slice(0, expectedBudget)
       expect(prompt).toContain(truncatedText)
+    })
+  })
+
+  // ─── buildQuizExamples ─────────────────────────────────────
+
+  describe('buildQuizExamples', () => {
+    it('should include only the multiple-choice example when only that type is requested', async () => {
+      const { buildQuizExamples } = await import('@main/services/ai-prompts')
+
+      const result = buildQuizExamples('multiple-choice')
+
+      expect(result).toContain('"multiple-choice"')
+      expect(result).not.toContain('"true-false"')
+      expect(result).not.toContain('"short-answer"')
+    })
+
+    it('should include only the true-false example when only that type is requested', async () => {
+      const { buildQuizExamples } = await import('@main/services/ai-prompts')
+
+      const result = buildQuizExamples('true-false')
+
+      expect(result).not.toContain('"multiple-choice"')
+      expect(result).toContain('"true-false"')
+      expect(result).not.toContain('"short-answer"')
+    })
+
+    it('should include all three examples when all types are requested', async () => {
+      const { buildQuizExamples } = await import('@main/services/ai-prompts')
+
+      const result = buildQuizExamples('multiple-choice, true-false, short-answer')
+
+      expect(result).toContain('"multiple-choice"')
+      expect(result).toContain('"true-false"')
+      expect(result).toContain('"short-answer"')
+    })
+
+    it('should fall back to multiple-choice example for unrecognised type strings', async () => {
+      const { buildQuizExamples } = await import('@main/services/ai-prompts')
+
+      const result = buildQuizExamples('unknown-type')
+
+      expect(result).toContain('"multiple-choice"')
+    })
+
+    it('should return valid JSON array syntax', async () => {
+      const { buildQuizExamples } = await import('@main/services/ai-prompts')
+
+      const result = buildQuizExamples('multiple-choice, true-false')
+
+      expect(() => JSON.parse(result)).not.toThrow()
+      expect(Array.isArray(JSON.parse(result))).toBe(true)
+    })
+  })
+
+  // ─── calcNumPredict ────────────────────────────────────────
+
+  describe('calcNumPredict', () => {
+    it('should return 750 for 1 question (1*250+500)', async () => {
+      const { calcNumPredict } = await import('@main/services/quiz-generation-service')
+      expect(calcNumPredict(1)).toBe(750)
+    })
+
+    it('should return 3000 for 10 questions (10*250+500)', async () => {
+      const { calcNumPredict } = await import('@main/services/quiz-generation-service')
+      expect(calcNumPredict(10)).toBe(3000)
+    })
+
+    it('should scale linearly with question count', async () => {
+      const { calcNumPredict } = await import('@main/services/quiz-generation-service')
+      expect(calcNumPredict(20)).toBe(calcNumPredict(10) + 10 * 250)
     })
   })
 })

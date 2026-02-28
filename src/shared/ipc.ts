@@ -115,6 +115,7 @@ export const IPC_CHANNELS = {
   FILE_UPLOAD: 'file:upload',
   FILE_VALIDATE: 'file:validate',
   FILE_EXPORT_JSON: 'file:export-json',
+  FILE_OPEN_IN_SYSTEM_APP: 'file:open-in-system-app',
 
   // Document Parsing
   DOC_PARSE: 'doc:parse',
@@ -302,6 +303,7 @@ export interface IpcChannelMap {
 
   // Files
   'file:open-dialog': { args: []; response: IpcResult<string[]> }
+  'file:open-in-system-app': { args: [filePath: string]; response: IpcResult<void> }
   'file:upload': {
     args: [input: FileUploadInput]
     response: IpcResult<DocumentDto>

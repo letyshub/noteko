@@ -61,6 +61,7 @@ const electronAPI: ElectronAPI = {
 
   // Files
   'file:open-dialog': () => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_DIALOG),
+  'file:open-in-system-app': (filePath) => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_IN_SYSTEM_APP, filePath),
   'file:upload': (input) => ipcRenderer.invoke(IPC_CHANNELS.FILE_UPLOAD, input),
   'file:validate': (filePath) => ipcRenderer.invoke(IPC_CHANNELS.FILE_VALIDATE, filePath),
   'file:export-json': (data, defaultFilename) =>

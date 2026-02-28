@@ -58,6 +58,48 @@ export const CHAT_SYSTEM_PROMPT =
 // Quiz generation prompts
 // ---------------------------------------------------------------------------
 
+const QUIZ_EXAMPLE_MULTIPLE_CHOICE = `  {
+    "question": "At what temperature does water boil at standard atmospheric pressure?",
+    "type": "multiple-choice",
+    "options": ["50°C", "100°C", "150°C", "200°C"],
+    "correct_answer": "100°C",
+    "explanation": "Water boils at 100°C (212°F) at standard atmospheric pressure (1 atm).",
+    "difficulty": "easy"
+  }`
+
+const QUIZ_EXAMPLE_TRUE_FALSE = `  {
+    "question": "Mitochondria produce ATP through a process called cellular respiration.",
+    "type": "true-false",
+    "options": ["True", "False"],
+    "correct_answer": "True",
+    "explanation": "Mitochondria are the site of cellular respiration, converting glucose and oxygen into ATP, CO2, and water.",
+    "difficulty": "medium"
+  }`
+
+const QUIZ_EXAMPLE_SHORT_ANSWER = `  {
+    "question": "What is the primary function of the sodium-potassium pump in nerve cells?",
+    "type": "short-answer",
+    "options": null,
+    "correct_answer": "Maintaining the electrochemical gradient by pumping 3 Na+ ions out and 2 K+ ions in per ATP consumed",
+    "explanation": "The Na+/K+ ATPase pump actively transports sodium out of and potassium into the cell, maintaining the resting membrane potential required for nerve signal transmission.",
+    "difficulty": "hard"
+  }`
+
+/**
+ * Build the example block for the quiz prompt, including only the question
+ * types that will actually be generated. Reduces input token count when the
+ * user selects fewer than all three types.
+ */
+export function buildQuizExamples(questionTypes: string): string {
+  const types = questionTypes.split(',').map((t) => t.trim())
+  const examples: string[] = []
+  if (types.includes('multiple-choice')) examples.push(QUIZ_EXAMPLE_MULTIPLE_CHOICE)
+  if (types.includes('true-false')) examples.push(QUIZ_EXAMPLE_TRUE_FALSE)
+  if (types.includes('short-answer')) examples.push(QUIZ_EXAMPLE_SHORT_ANSWER)
+  if (examples.length === 0) examples.push(QUIZ_EXAMPLE_MULTIPLE_CHOICE)
+  return `[\n${examples.join(',\n')}\n]`
+}
+
 export const QUIZ_GENERATION_PROMPT = `Generate exactly {questionCount} quiz questions from the following document text.
 
 Question types to generate: {questionTypes}
@@ -70,34 +112,12 @@ Rules:
   "options" (array of exactly 4 strings for multiple-choice, ["True", "False"] for true-false, null for short-answer),
   "correct_answer" (string, must be one of the options for multiple-choice/true-false),
   "explanation" (string), "difficulty" (one of "easy", "medium", "hard")
+- Questions MUST test specific facts, concepts, definitions, numbers, dates, processes, or relationships found in the document text.
+- NEVER ask generic structural questions like "What is the main topic?", "What does the author describe?", "What is discussed in this section?", or "What is the document about?".
+- Each question must be answerable ONLY by someone who has read and understood the specific content — not by guessing the document structure.
 
 Example output:
-[
-  {
-    "question": "What is the main topic discussed?",
-    "type": "multiple-choice",
-    "options": ["Topic A", "Topic B", "Topic C", "Topic D"],
-    "correct_answer": "Topic A",
-    "explanation": "The document primarily discusses Topic A.",
-    "difficulty": "easy"
-  },
-  {
-    "question": "The document states X is true.",
-    "type": "true-false",
-    "options": ["True", "False"],
-    "correct_answer": "True",
-    "explanation": "According to the document, X is indeed true.",
-    "difficulty": "medium"
-  },
-  {
-    "question": "What process does the author describe?",
-    "type": "short-answer",
-    "options": null,
-    "correct_answer": "The process of Y",
-    "explanation": "The author describes Y in detail in section 2.",
-    "difficulty": "hard"
-  }
-]
+{examples}
 
 Document text:
 {text}`
@@ -121,6 +141,8 @@ Question types: {questionTypes} | Difficulty: {difficulty}
 
 Output ONLY a valid JSON array of question objects. Each object must have:
 "question" (string), "type" (string), "options" (array or null), "correct_answer" (string), "explanation" (string), "difficulty" (string).
+
+Questions must test specific facts, concepts, definitions, or relationships from the document — never ask generic questions like "What is the main topic?" or "What does this section discuss?".
 
 Document text:
 {text}`
