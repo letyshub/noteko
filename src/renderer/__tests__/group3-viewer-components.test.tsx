@@ -278,11 +278,11 @@ describe('DocumentPreview', () => {
     DocumentPreview = mod.DocumentPreview
   })
 
-  it('dispatches pdf file type to PdfViewer', () => {
+  it('shows "Open in system app" button for pdf file type', () => {
     render(<DocumentPreview document={pdfDocument} />)
 
-    const pdfDoc = screen.getByTestId('pdf-document')
-    expect(pdfDoc).toBeInTheDocument()
+    expect(screen.getByText(/PDF preview not available/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open in system app/i })).toBeInTheDocument()
   })
 
   it('dispatches image file type to ImageViewer', () => {
@@ -336,7 +336,7 @@ describe('DocumentViewer split layout', () => {
     DocumentViewer = mod.DocumentViewer
   })
 
-  it('renders ResizablePanelGroup with two panels for PDF document', () => {
+  it('renders single-column layout (no split) for PDF document', () => {
     render(
       <DocumentViewer
         document={pdfDocument}
@@ -347,15 +347,10 @@ describe('DocumentViewer split layout', () => {
       />,
     )
 
-    const panelGroup = screen.getByTestId('resizable-panel-group')
-    expect(panelGroup).toBeInTheDocument()
-    expect(panelGroup.getAttribute('data-orientation')).toBe('horizontal')
-
-    const panels = screen.getAllByTestId('resizable-panel')
-    expect(panels.length).toBe(2)
-
-    const handle = screen.getByTestId('resizable-handle')
-    expect(handle).toBeInTheDocument()
+    // PDF is not previewable in-app — uses single-column layout
+    expect(screen.queryByTestId('resizable-panel-group')).not.toBeInTheDocument()
+    // "Open in system PDF viewer" button should be present
+    expect(screen.getByRole('button', { name: /open in system pdf viewer/i })).toBeInTheDocument()
   })
 
   it('renders single column (no split) for unsupported file type', () => {

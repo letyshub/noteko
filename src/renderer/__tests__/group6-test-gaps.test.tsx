@@ -349,11 +349,11 @@ describe('DocumentViewer pending/processing status placeholders', () => {
     DocumentViewer = mod.DocumentViewer
   })
 
-  it('shows "not yet processed" in text panel and processing state in preview for pending document', () => {
+  it('shows "not yet processed" in text panel and processing state in preview for pending document', async () => {
     const pendingDoc: DocumentDetailDto = {
-      ...pdfDocument,
+      ...textDocument,
       id: 99,
-      name: 'uploading.pdf',
+      name: 'uploading.txt',
       processing_status: 'pending',
       content: null,
     }
@@ -368,7 +368,7 @@ describe('DocumentViewer pending/processing status placeholders', () => {
       />,
     )
 
-    // Should still have split layout (pdf is previewable)
+    // Should have split layout (txt is previewable)
     expect(screen.getByTestId('resizable-panel-group')).toBeInTheDocument()
 
     // Right panel should show "not yet processed"
@@ -442,7 +442,7 @@ describe('DocumentViewer ResizablePanel minimum sizes', () => {
   it('sets minSize attributes on both resizable panels to prevent collapse', () => {
     render(
       <DocumentViewer
-        document={pdfDocument}
+        document={textDocument}
         onRetry={vi.fn()}
         onSummarize={vi.fn()}
         onExtractKeyPoints={vi.fn()}
