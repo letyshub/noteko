@@ -28,7 +28,10 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npx playwright test",
     "typecheck": "tsc --noEmit",
-    "pretest:e2e": "node scripts/build-main-e2e.mjs"
+    "pretest:e2e": "node scripts/build-main-e2e.mjs",
+    "release": "node scripts/release.mjs",
+    "release:minor": "node scripts/release.mjs --minor",
+    "release:major": "node scripts/release.mjs --major"
   },
   "keywords": [],
   "author": {
