@@ -110,6 +110,11 @@
   "engines": {
     "node": ">=20"
   },
+  "overrides": {
+    "tar": "^7.5.8",
+    "tmp": "^0.2.4",
+    "esbuild": "^0.27.3"
+  },
   "lint-staged": {
     "*.{ts,tsx,mts}": [
       "prettier --write",
