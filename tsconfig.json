@@ -11,12 +11,11 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "outDir": "dist",
     "paths": {
-      "@main/*": ["src/main/*"],
-      "@renderer/*": ["src/renderer/*"],
-      "@shared/*": ["src/shared/*"]
+      "@main/*": ["./src/main/*"],
+      "@renderer/*": ["./src/renderer/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "forge.env.d.ts", "tests/**/*.ts"],
